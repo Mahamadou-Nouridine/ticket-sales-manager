@@ -117,77 +117,79 @@ export function SalesTable({ sales, ticketTypes, salesmen }: SalesTableProps) {
                 </DialogContent>
             </Dialog>
 
-            <div className="rounded-md border">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Vendeur</TableHead>
-                            <TableHead>Type</TableHead>
-                            <TableHead>Quantité</TableHead>
-                            <TableHead>Date Prise</TableHead>
-                            <TableHead>Versé</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {paginatedSales.length === 0 ? (
+            <div className="rounded-md border overflow-hidden">
+                <div className="overflow-x-auto">
+                    <Table>
+                        <TableHeader>
                             <TableRow>
-                                <TableCell colSpan={6} className="text-center">
-                                    Aucune vente trouvée.
-                                </TableCell>
+                                <TableHead>Vendeur</TableHead>
+                                <TableHead>Type</TableHead>
+                                <TableHead>Quantité</TableHead>
+                                <TableHead>Date Prise</TableHead>
+                                <TableHead>Versé</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
-                        ) : (
-                            paginatedSales.map((sale) => (
-                                <TableRow key={sale.id}>
-                                    <TableCell>{sale.salesman_name}</TableCell>
-                                    <TableCell>{sale.ticket_type_name}</TableCell>
-                                    <TableCell>{sale.quantity}</TableCell>
-                                    <TableCell>{sale.date_de_prise}</TableCell>
-                                    <TableCell>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className={sale.verse ? "text-green-600 hover:text-green-700 hover:bg-green-50" : "text-red-600 hover:text-red-700 hover:bg-red-50"}
-                                            onClick={() => handleTogglePayment(sale.id, !sale.verse)}
-                                            title={sale.verse ? "Marquer comme non versé" : "Marquer comme versé"}
-                                        >
-                                            {sale.verse ? (
-                                                <span className="inline-flex items-center gap-1">
-                                                    <CheckCircle className="h-4 w-4" /> Oui
-                                                </span>
-                                            ) : (
-                                                <span className="inline-flex items-center gap-1">
-                                                    <XCircle className="h-4 w-4" /> Non
-                                                </span>
-                                            )}
-                                        </Button>
+                        </TableHeader>
+                        <TableBody>
+                            {paginatedSales.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={6} className="text-center">
+                                        Aucune vente trouvée.
                                     </TableCell>
-                                    <TableCell className="text-right">
-                                        <div className="flex justify-end space-x-2">
+                                </TableRow>
+                            ) : (
+                                paginatedSales.map((sale) => (
+                                    <TableRow key={sale.id}>
+                                        <TableCell className="whitespace-nowrap">{sale.salesman_name}</TableCell>
+                                        <TableCell className="whitespace-nowrap">{sale.ticket_type_name}</TableCell>
+                                        <TableCell>{sale.quantity}</TableCell>
+                                        <TableCell className="whitespace-nowrap">{sale.date_de_prise}</TableCell>
+                                        <TableCell>
                                             <Button
                                                 variant="ghost"
-                                                size="icon"
-                                                onClick={() => setEditingSale(sale)}
+                                                size="sm"
+                                                className={sale.verse ? "text-green-600 hover:text-green-700 hover:bg-green-50" : "text-red-600 hover:text-red-700 hover:bg-red-50"}
+                                                onClick={() => handleTogglePayment(sale.id, !sale.verse)}
+                                                title={sale.verse ? "Marquer comme non versé" : "Marquer comme versé"}
                                             >
-                                                <Edit className="h-4 w-4" />
+                                                {sale.verse ? (
+                                                    <span className="inline-flex items-center gap-1">
+                                                        <CheckCircle className="h-4 w-4" /> Oui
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1">
+                                                        <XCircle className="h-4 w-4" /> Non
+                                                    </span>
+                                                )}
                                             </Button>
-                                            {isSuperuser && (
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <div className="flex justify-end space-x-2">
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    onClick={() => handleDelete(sale.id)}
-                                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                    onClick={() => setEditingSale(sale)}
                                                 >
-                                                    <Trash2 className="h-4 w-4" />
+                                                    <Edit className="h-4 w-4" />
                                                 </Button>
-                                            )}
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))
-                        )}
-                    </TableBody>
-                </Table>
+                                                {isSuperuser && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => handleDelete(sale.id)}
+                                                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
             </div>
 
             <div className="flex items-center justify-end space-x-2 py-4">

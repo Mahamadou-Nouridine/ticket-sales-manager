@@ -125,60 +125,62 @@ export function SalesmenList({ salesmen }: SalesmenListProps) {
                 </DialogContent>
             </Dialog>
 
-            <div className="rounded-md border">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Nom</TableHead>
-                            <TableHead>Statut</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {salesmen.map((salesman) => (
-                            <TableRow key={salesman.id}>
-                                <TableCell>{salesman.name}</TableCell>
-                                <TableCell>
-                                    {salesman.active ? (
-                                        <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
-                                            Actif
-                                        </span>
-                                    ) : (
-                                        <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800">
-                                            Inactif
-                                        </span>
-                                    )}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                    <div className="flex justify-end space-x-2">
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={() => {
-                                                setEditingSalesman(salesman);
-                                                setEditName(salesman.name);
-                                            }}
-                                        >
-                                            <Edit className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={() => handleToggle(salesman.id, !salesman.active)}
-                                            title={salesman.active ? "Désactiver" : "Activer"}
-                                        >
-                                            {salesman.active ? (
-                                                <Power className="h-4 w-4 text-green-600" />
-                                            ) : (
-                                                <PowerOff className="h-4 w-4 text-gray-400" />
-                                            )}
-                                        </Button>
-                                    </div>
-                                </TableCell>
+            <div className="rounded-md border overflow-hidden">
+                <div className="overflow-x-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Nom</TableHead>
+                                <TableHead>Statut</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                        </TableHeader>
+                        <TableBody>
+                            {salesmen.map((salesman) => (
+                                <TableRow key={salesman.id}>
+                                    <TableCell className="whitespace-nowrap">{salesman.name}</TableCell>
+                                    <TableCell>
+                                        {salesman.active ? (
+                                            <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+                                                Actif
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800">
+                                                Inactif
+                                            </span>
+                                        )}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <div className="flex justify-end space-x-2">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => {
+                                                    setEditingSalesman(salesman);
+                                                    setEditName(salesman.name);
+                                                }}
+                                            >
+                                                <Edit className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => handleToggle(salesman.id, !salesman.active)}
+                                                title={salesman.active ? "Désactiver" : "Activer"}
+                                            >
+                                                {salesman.active ? (
+                                                    <Power className="h-4 w-4 text-green-600" />
+                                                ) : (
+                                                    <PowerOff className="h-4 w-4 text-gray-400" />
+                                                )}
+                                            </Button>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
             </div>
         </div>
     );

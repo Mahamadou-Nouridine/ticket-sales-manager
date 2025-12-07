@@ -12,10 +12,18 @@ import {
     FileText,
     LogOut,
     UserCircle,
+    Menu,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { useState } from "react";
 
-export function Sidebar() {
+interface SidebarContentProps extends React.HTMLAttributes<HTMLDivElement> {
+    onNavigate?: () => void;
+}
+
+function SidebarContent({ className, onNavigate }: SidebarContentProps) {
     const pathname = usePathname();
     const { data: session } = useSession();
     const isSuperuser = (session?.user as any)?.role === "superuser";
@@ -35,7 +43,7 @@ export function Sidebar() {
     ];
 
     return (
-        <div className="flex h-full w-64 flex-col bg-gray-900 text-white">
+        <div className={cn("flex h-full flex-col bg-gray-900 text-white", className)}>
             <div className="flex h-16 items-center justify-center border-b border-gray-800">
                 <h1 className="text-xl font-bold">Ticket Manager</h1>
             </div>
@@ -47,6 +55,7 @@ export function Sidebar() {
                             <Link
                                 key={item.name}
                                 href={item.href}
+                                onClick={onNavigate}
                                 className={cn(
                                     "group flex items-center rounded-md px-2 py-2 text-sm font-medium",
                                     isActive
@@ -76,6 +85,7 @@ export function Sidebar() {
                                     <Link
                                         key={item.name}
                                         href={item.href}
+                                        onClick={onNavigate}
                                         className={cn(
                                             "group flex items-center rounded-md px-2 py-2 text-sm font-medium",
                                             isActive
@@ -120,5 +130,31 @@ export function Sidebar() {
                 </button>
             </div>
         </div>
+    );
+}
+
+export function Sidebar() {
+    return (
+        <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0">
+            <SidebarContent />
+        </div>
+    );
+}
+
+export function MobileSidebar() {
+    const [open, setOpen] = useState(false);
+
+    return (
+        <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="md:hidden">
+                    <Menu className="h-6 w-6" />
+                    <span className="sr-only">Menu</span>
+                </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="p-0 w-72 bg-gray-900 border-r-gray-800">
+                <SidebarContent onNavigate={() => setOpen(false)} />
+            </SheetContent>
+        </Sheet>
     );
 }

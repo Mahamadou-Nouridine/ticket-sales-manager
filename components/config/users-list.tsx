@@ -208,79 +208,81 @@ export function UsersList({ users }: UsersListProps) {
                 </DialogContent>
             </Dialog>
 
-            <div className="rounded-md border">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Utilisateur</TableHead>
-                            <TableHead>Nom Complet</TableHead>
-                            <TableHead>Rôle</TableHead>
-                            <TableHead>Statut</TableHead>
-                            <TableHead>Dernière Connexion</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {users.map((user) => (
-                            <TableRow key={user.id}>
-                                <TableCell>{user.username}</TableCell>
-                                <TableCell>{user.full_name}</TableCell>
-                                <TableCell>
-                                    {user.role === "superuser" ? (
-                                        <span className="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-800">
-                                            Admin
-                                        </span>
-                                    ) : (
-                                        <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
-                                            Utilisateur
-                                        </span>
-                                    )}
-                                </TableCell>
-                                <TableCell>
-                                    {user.active ? (
-                                        <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
-                                            Actif
-                                        </span>
-                                    ) : (
-                                        <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800">
-                                            Inactif
-                                        </span>
-                                    )}
-                                </TableCell>
-                                <TableCell>{user.last_login || "-"}</TableCell>
-                                <TableCell className="text-right">
-                                    <div className="flex justify-end space-x-2">
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={() => {
-                                                setEditingUser(user);
-                                                setEditUsername(user.username);
-                                                setEditFullName(user.full_name);
-                                                setEditRole(user.role);
-                                                setEditPassword("");
-                                            }}
-                                        >
-                                            <Edit className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={() => handleToggle(user.id, !user.active)}
-                                            title={user.active ? "Désactiver" : "Activer"}
-                                        >
-                                            {user.active ? (
-                                                <Power className="h-4 w-4 text-green-600" />
-                                            ) : (
-                                                <PowerOff className="h-4 w-4 text-gray-400" />
-                                            )}
-                                        </Button>
-                                    </div>
-                                </TableCell>
+            <div className="rounded-md border overflow-hidden">
+                <div className="overflow-x-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Utilisateur</TableHead>
+                                <TableHead>Nom Complet</TableHead>
+                                <TableHead>Rôle</TableHead>
+                                <TableHead>Statut</TableHead>
+                                <TableHead>Dernière Connexion</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                        </TableHeader>
+                        <TableBody>
+                            {users.map((user) => (
+                                <TableRow key={user.id}>
+                                    <TableCell className="whitespace-nowrap">{user.username}</TableCell>
+                                    <TableCell className="whitespace-nowrap">{user.full_name}</TableCell>
+                                    <TableCell>
+                                        {user.role === "superuser" ? (
+                                            <span className="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-800">
+                                                Admin
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
+                                                Utilisateur
+                                            </span>
+                                        )}
+                                    </TableCell>
+                                    <TableCell>
+                                        {user.active ? (
+                                            <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+                                                Actif
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800">
+                                                Inactif
+                                            </span>
+                                        )}
+                                    </TableCell>
+                                    <TableCell className="whitespace-nowrap">{user.last_login || "-"}</TableCell>
+                                    <TableCell className="text-right">
+                                        <div className="flex justify-end space-x-2">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => {
+                                                    setEditingUser(user);
+                                                    setEditUsername(user.username);
+                                                    setEditFullName(user.full_name);
+                                                    setEditRole(user.role);
+                                                    setEditPassword("");
+                                                }}
+                                            >
+                                                <Edit className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => handleToggle(user.id, !user.active)}
+                                                title={user.active ? "Désactiver" : "Activer"}
+                                            >
+                                                {user.active ? (
+                                                    <Power className="h-4 w-4 text-green-600" />
+                                                ) : (
+                                                    <PowerOff className="h-4 w-4 text-gray-400" />
+                                                )}
+                                            </Button>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
             </div>
         </div>
     );
