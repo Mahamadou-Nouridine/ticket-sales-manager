@@ -1,36 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Ticket Sales Management System
 
-## Getting Started
+A Next.js 14+ application for managing ticket sales, using Google Sheets as the database.
 
-First, run the development server:
+## Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **Authentication**: Secure login with username/password (NextAuth.js).
+- **Dashboard**: Overview of sales and statistics.
+- **Sales Management**: Add, edit, delete, and list sales.
+- **Configuration**: Manage ticket types, salesmen, and users.
+- **Reports**: Visual charts for sales analysis (Superuser only).
+- **Audit Logging**: Tracks all important actions.
+- **Role-based Access**: User vs Superuser roles.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1.  **Clone the repository**.
+2.  **Install dependencies**:
+    ```bash
+    npm install
+    ```
+3.  **Environment Variables**:
+    Copy `.env.example` to `.env.local` and fill in the values:
+    ```env
+    GOOGLE_SHEETS_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n..."
+    GOOGLE_SHEETS_CLIENT_EMAIL="your-service-account@..."
+    GOOGLE_SHEET_ID="your-sheet-id"
+    NEXTAUTH_SECRET="random-string"
+    NEXTAUTH_URL="http://localhost:3000"
+    ```
+4.  **Google Sheets Setup**:
+    - Create a new Google Sheet.
+    - Share it with the service account email (Editor access).
+    - Create the following sheets (tabs):
+        - `Sales Records`
+        - `Users`
+        - `Ticket Types`
+        - `Salesmen`
+        - `Audit Logs`
+    - Add headers to each sheet as defined in the requirements.
+        - **Sales Records**: `id`, `nom`, `type_de_ticket`, `quantite`, `date_de_prise`, `date_de_versement`, `verse`, `created_by`, `created_at`, `updated_at`
+        - **Users**: `id`, `username`, `password_hash`, `role`, `full_name`, `active`, `created_at`, `last_login`
+        - **Ticket Types**: `id`, `name`, `price`, `active`, `created_at`
+        - **Salesmen**: `id`, `name`, `active`, `created_at`
+        - **Audit Logs**: `id`, `user_id`, `action`, `entity_type`, `entity_id`, `details`, `timestamp`
+    - **Initial User**: You must manually add a superuser to the `Users` sheet to log in initially.
+        - Generate a bcrypt hash for your password (e.g., using an online tool or script).
+        - Add a row: `uuid`, `admin`, `hash`, `superuser`, `Admin`, `TRUE`, `date`, ``
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+5.  **Run the application**:
+    ```bash
+    npm run dev
+    ```
 
-## Learn More
+## Deployment
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Deploy to Vercel:
+1.  Push to GitHub.
+2.  Import project in Vercel.
+3.  Add Environment Variables in Vercel settings.
