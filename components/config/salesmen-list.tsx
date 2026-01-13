@@ -13,6 +13,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import {
     Dialog,
     DialogContent,
     DialogHeader,
@@ -21,7 +28,7 @@ import {
 } from "@/components/ui/dialog";
 import { createSalesman, toggleSalesman, updateSalesman } from "@/actions/config";
 import { useRouter } from "next/navigation";
-import { Plus, Power, PowerOff, Edit } from "lucide-react";
+import { Plus, Power, PowerOff, Edit, Loader2 } from "lucide-react";
 
 interface SalesmenListProps {
     salesmen: Salesman[];
@@ -32,6 +39,8 @@ export function SalesmenList({ salesmen }: SalesmenListProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [name, setName] = useState("");
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [loadingActions, setLoadingActions] = useState<Record<string, boolean>>({});
 
     // Edit state
     const [editingSalesman, setEditingSalesman] = useState<Salesman | null>(null);
@@ -69,13 +78,34 @@ export function SalesmenList({ salesmen }: SalesmenListProps) {
     }
 
     async function handleToggle(id: string, active: boolean) {
-        await toggleSalesman(id, active);
-        router.refresh();
+        setLoadingActions({ ...loadingActions, [`toggle-${id}`]: true });
+        try {
+            await toggleSalesman(id, active);
+            router.refresh();
+        } finally {
+            setLoadingActions({ ...loadingActions, [`toggle-${id}`]: false });
+        }
     }
+
+    const displayedSalesmen = salesmen.slice(0, itemsPerPage);
 
     return (
         <div className="space-y-4">
-            <div className="flex justify-end">
+            <div className="flex items-center justify-between">
+                <Select
+                    value={itemsPerPage.toString()}
+                    onValueChange={(value) => setItemsPerPage(parseInt(value))}
+                >
+                    <SelectTrigger className="w-[120px]">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="10">10 / page</SelectItem>
+                        <SelectItem value="20">20 / page</SelectItem>
+                        <SelectItem value="50">50 / page</SelectItem>
+                        <SelectItem value="100">100 / page</SelectItem>
+                    </SelectContent>
+                </Select>
                 <Dialog open={isOpen} onOpenChange={setIsOpen}>
                     <DialogTrigger asChild>
                         <Button>
@@ -97,6 +127,7 @@ export function SalesmenList({ salesmen }: SalesmenListProps) {
                                 />
                             </div>
                             <Button type="submit" className="w-full" disabled={isLoading}>
+                                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Créer
                             </Button>
                         </form>
@@ -119,6 +150,7 @@ export function SalesmenList({ salesmen }: SalesmenListProps) {
                             />
                         </div>
                         <Button type="submit" className="w-full" disabled={isLoading}>
+                            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Modifier
                         </Button>
                     </form>
@@ -136,7 +168,7 @@ export function SalesmenList({ salesmen }: SalesmenListProps) {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {salesmen.map((salesman) => (
+                            {displayedSalesmen.map((salesman) => (
                                 <TableRow key={salesman.id}>
                                     <TableCell className="whitespace-nowrap">{salesman.name}</TableCell>
                                     <TableCell>
@@ -166,9 +198,12 @@ export function SalesmenList({ salesmen }: SalesmenListProps) {
                                                 variant="ghost"
                                                 size="icon"
                                                 onClick={() => handleToggle(salesman.id, !salesman.active)}
+                                                disabled={loadingActions[`toggle-${salesman.id}`]}
                                                 title={salesman.active ? "Désactiver" : "Activer"}
                                             >
-                                                {salesman.active ? (
+                                                {loadingActions[`toggle-${salesman.id}`] ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                ) : salesman.active ? (
                                                     <Power className="h-4 w-4 text-green-600" />
                                                 ) : (
                                                     <PowerOff className="h-4 w-4 text-gray-400" />

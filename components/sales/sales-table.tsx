@@ -12,9 +12,16 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { deleteSale, toggleSalePayment } from "@/actions/sales";
 import { useRouter } from "next/navigation";
-import { Edit, Trash2, Plus, CheckCircle, XCircle } from "lucide-react";
+import { Edit, Trash2, Plus, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import {
     Dialog,
@@ -24,6 +31,7 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 import { SaleForm } from "./sale-form";
+import { PaymentDialog } from "./payment-dialog";
 
 interface SalesTableProps {
     sales: Sale[];
@@ -38,9 +46,11 @@ export function SalesTable({ sales, ticketTypes, salesmen }: SalesTableProps) {
 
     const [filter, setFilter] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
     const [isNewSaleOpen, setIsNewSaleOpen] = useState(false);
     const [editingSale, setEditingSale] = useState<Sale | null>(null);
-    const itemsPerPage = 10;
+    const [paymentSaleId, setPaymentSaleId] = useState<string | null>(null);
+    const [loadingActions, setLoadingActions] = useState<Record<string, boolean>>({});
 
     const filteredSales = sales.filter(
         (sale) =>
@@ -56,46 +66,92 @@ export function SalesTable({ sales, ticketTypes, salesmen }: SalesTableProps) {
 
     async function handleDelete(id: string) {
         if (confirm("Êtes-vous sûr de vouloir supprimer cette vente ?")) {
-            await deleteSale(id);
-            router.refresh();
+            setLoadingActions({ ...loadingActions, [`delete-${id}`]: true });
+            try {
+                await deleteSale(id);
+                router.refresh();
+            } finally {
+                setLoadingActions({ ...loadingActions, [`delete-${id}`]: false });
+            }
         }
     }
 
     async function handleTogglePayment(id: string, verse: boolean) {
-        await toggleSalePayment(id, verse);
-        router.refresh();
+        if (verse) {
+            // Open payment dialog
+            setPaymentSaleId(id);
+        } else {
+            // Unmark as paid
+            setLoadingActions({ ...loadingActions, [`payment-${id}`]: true });
+            try {
+                await toggleSalePayment(id, false);
+                router.refresh();
+            } finally {
+                setLoadingActions({ ...loadingActions, [`payment-${id}`]: false });
+            }
+        }
+    }
+
+    async function handlePaymentConfirm(invoiceNumber: string, paymentDate: string) {
+        if (!paymentSaleId) return;
+        setLoadingActions({ ...loadingActions, [`payment-${paymentSaleId}`]: true });
+        try {
+            await toggleSalePayment(paymentSaleId, true, invoiceNumber, paymentDate);
+            router.refresh();
+        } finally {
+            setLoadingActions({ ...loadingActions, [`payment-${paymentSaleId}`]: false });
+        }
     }
 
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <Input
                     placeholder="Rechercher par vendeur ou type..."
                     value={filter}
                     onChange={(e) => setFilter(e.target.value)}
                     className="max-w-sm"
                 />
-                <Dialog open={isNewSaleOpen} onOpenChange={setIsNewSaleOpen}>
-                    <DialogTrigger asChild>
-                        <Button>
-                            <Plus className="mr-2 h-4 w-4" />
-                            Nouvelle Vente
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[600px]">
-                        <DialogHeader>
-                            <DialogTitle>Nouvelle Vente</DialogTitle>
-                        </DialogHeader>
-                        <SaleForm
-                            ticketTypes={ticketTypes}
-                            salesmen={salesmen}
-                            onSuccess={() => {
-                                setIsNewSaleOpen(false);
-                                router.refresh();
-                            }}
-                        />
-                    </DialogContent>
-                </Dialog>
+                <div className="flex items-center gap-2">
+                    <Select
+                        value={itemsPerPage.toString()}
+                        onValueChange={(value) => {
+                            setItemsPerPage(parseInt(value));
+                            setCurrentPage(1);
+                        }}
+                    >
+                        <SelectTrigger className="w-[120px]">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="10">10 / page</SelectItem>
+                            <SelectItem value="20">20 / page</SelectItem>
+                            <SelectItem value="50">50 / page</SelectItem>
+                            <SelectItem value="100">100 / page</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <Dialog open={isNewSaleOpen} onOpenChange={setIsNewSaleOpen}>
+                        <DialogTrigger asChild>
+                            <Button>
+                                <Plus className="mr-2 h-4 w-4" />
+                                Nouvelle Vente
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[600px]">
+                            <DialogHeader>
+                                <DialogTitle>Nouvelle Vente</DialogTitle>
+                            </DialogHeader>
+                            <SaleForm
+                                ticketTypes={ticketTypes}
+                                salesmen={salesmen}
+                                onSuccess={() => {
+                                    setIsNewSaleOpen(false);
+                                    router.refresh();
+                                }}
+                            />
+                        </DialogContent>
+                    </Dialog>
+                </div>
             </div>
 
             <Dialog open={!!editingSale} onOpenChange={(open) => !open && setEditingSale(null)}>
@@ -116,6 +172,12 @@ export function SalesTable({ sales, ticketTypes, salesmen }: SalesTableProps) {
                     )}
                 </DialogContent>
             </Dialog>
+
+            <PaymentDialog
+                open={!!paymentSaleId}
+                onOpenChange={(open) => !open && setPaymentSaleId(null)}
+                onConfirm={handlePaymentConfirm}
+            />
 
             <div className="rounded-md border overflow-hidden">
                 <div className="overflow-x-auto">
@@ -150,9 +212,12 @@ export function SalesTable({ sales, ticketTypes, salesmen }: SalesTableProps) {
                                                 size="sm"
                                                 className={sale.verse ? "text-green-600 hover:text-green-700 hover:bg-green-50" : "text-red-600 hover:text-red-700 hover:bg-red-50"}
                                                 onClick={() => handleTogglePayment(sale.id, !sale.verse)}
+                                                disabled={loadingActions[`payment-${sale.id}`]}
                                                 title={sale.verse ? "Marquer comme non versé" : "Marquer comme versé"}
                                             >
-                                                {sale.verse ? (
+                                                {loadingActions[`payment-${sale.id}`] ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                ) : sale.verse ? (
                                                     <span className="inline-flex items-center gap-1">
                                                         <CheckCircle className="h-4 w-4" /> Oui
                                                     </span>
@@ -177,9 +242,14 @@ export function SalesTable({ sales, ticketTypes, salesmen }: SalesTableProps) {
                                                         variant="ghost"
                                                         size="icon"
                                                         onClick={() => handleDelete(sale.id)}
+                                                        disabled={loadingActions[`delete-${sale.id}`]}
                                                         className="text-red-600 hover:text-red-700 hover:bg-red-50"
                                                     >
-                                                        <Trash2 className="h-4 w-4" />
+                                                        {loadingActions[`delete-${sale.id}`] ? (
+                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                        ) : (
+                                                            <Trash2 className="h-4 w-4" />
+                                                        )}
                                                     </Button>
                                                 )}
                                             </div>
@@ -192,26 +262,31 @@ export function SalesTable({ sales, ticketTypes, salesmen }: SalesTableProps) {
                 </div>
             </div>
 
-            <div className="flex items-center justify-end space-x-2 py-4">
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                >
-                    Précédent
-                </Button>
+            <div className="flex items-center justify-between py-4">
                 <div className="text-sm text-muted-foreground">
-                    Page {currentPage} sur {totalPages || 1}
+                    Affichage de {paginatedSales.length} sur {filteredSales.length} vente(s)
                 </div>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages || totalPages === 0}
-                >
-                    Suivant
-                </Button>
+                <div className="flex items-center space-x-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                    >
+                        Précédent
+                    </Button>
+                    <div className="text-sm text-muted-foreground">
+                        Page {currentPage} sur {totalPages || 1}
+                    </div>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages || totalPages === 0}
+                    >
+                        Suivant
+                    </Button>
+                </div>
             </div>
         </div>
     );

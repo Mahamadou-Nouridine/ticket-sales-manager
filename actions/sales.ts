@@ -12,19 +12,20 @@ export async function getSales() {
     if (!session) return [];
 
     const rows = await readSheet("Sales Records");
-    // Assuming header is row 0
+    // Column structure: id | salesman_name | ticket_type_name | quantity | date_de_prise | date_de_versement | verse | invoice_number | created_by | created_at | updated_at
     const sales: Sale[] = rows.slice(1).map((row) => ({
         id: row[0],
-        salesman_name: row[1], // "nom"
-        ticket_type_name: row[2], // "type_de_ticket"
+        salesman_name: row[1],
+        ticket_type_name: row[2],
         quantity: parseInt(row[3]),
         date_de_prise: row[4],
         date_de_versement: row[5],
         verse: row[6] === "TRUE",
-        created_by: row[7],
-        created_at: row[8],
-        updated_at: row[9],
-        salesman_id: "", // Not in sheet explicitly based on prompt columns, but we might need to map it if we change "nom" to ID. Prompt columns: id | nom | ...
+        invoice_number: row[7] || undefined,
+        created_by: row[8],
+        created_at: row[9],
+        updated_at: row[10],
+        salesman_id: "",
         ticket_type_id: "",
     }));
 
@@ -55,9 +56,10 @@ export async function getSale(id: string) {
         date_de_prise: row[4],
         date_de_versement: row[5],
         verse: row[6] === "TRUE",
-        created_by: row[7],
-        created_at: row[8],
-        updated_at: row[9],
+        invoice_number: row[7] || undefined,
+        created_by: row[8],
+        created_at: row[9],
+        updated_at: row[10],
         salesman_id: "",
         ticket_type_id: "",
     };
@@ -88,6 +90,7 @@ export async function createSale(data: CreateSaleInput) {
         data.date_de_prise,
         data.date_de_versement || "",
         data.verse ? "TRUE" : "FALSE",
+        data.invoice_number || "",
         username,
         now,
         now,
@@ -140,8 +143,9 @@ export async function updateSale(id: string, data: Partial<Sale>) {
         data.date_de_prise || currentRow[4],
         data.date_de_versement || currentRow[5],
         data.verse !== undefined ? (data.verse ? "TRUE" : "FALSE") : currentRow[6],
-        currentRow[7], // created_by
-        currentRow[8], // created_at
+        data.invoice_number !== undefined ? data.invoice_number : currentRow[7],
+        currentRow[8], // created_by
+        currentRow[9], // created_at
         now, // updated_at
     ];
 
@@ -193,7 +197,7 @@ export async function deleteSale(id: string) {
     return { success: true };
 }
 
-export async function toggleSalePayment(id: string, verse: boolean) {
+export async function toggleSalePayment(id: string, verse: boolean, invoiceNumber?: string, paymentDate?: string) {
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 
@@ -206,13 +210,19 @@ export async function toggleSalePayment(id: string, verse: boolean) {
     const isSuperuser = (session.user as any).role === "superuser";
     const username = (session.user as any).email;
 
-    if (!isSuperuser && currentRow[7] !== username) {
+    if (!isSuperuser && currentRow[8] !== username) {
         throw new Error("Unauthorized");
     }
 
     const newRow = [...currentRow];
     newRow[6] = verse ? "TRUE" : "FALSE";
-    newRow[9] = new Date().toISOString(); // updated_at
+    if (verse && paymentDate) {
+        newRow[5] = paymentDate; // date_de_versement
+    }
+    if (verse && invoiceNumber) {
+        newRow[7] = invoiceNumber; // invoice_number
+    }
+    newRow[10] = new Date().toISOString(); // updated_at
 
     await updateRow("Sales Records", rowIndex, newRow);
 
@@ -223,7 +233,7 @@ export async function toggleSalePayment(id: string, verse: boolean) {
         "UPDATE",
         "SALE",
         id,
-        `Toggled payment to ${verse}`,
+        `Toggled payment to ${verse}${invoiceNumber ? ` with invoice ${invoiceNumber}` : ''}`,
         new Date().toISOString(),
     ]);
 

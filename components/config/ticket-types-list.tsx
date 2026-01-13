@@ -13,6 +13,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import {
     Dialog,
     DialogContent,
     DialogHeader,
@@ -21,7 +28,7 @@ import {
 } from "@/components/ui/dialog";
 import { createTicketType, toggleTicketType, updateTicketType } from "@/actions/config";
 import { useRouter } from "next/navigation";
-import { Plus, Power, PowerOff, Edit } from "lucide-react";
+import { Plus, Power, PowerOff, Edit, Loader2 } from "lucide-react";
 
 interface TicketTypesListProps {
     ticketTypes: TicketType[];
@@ -33,6 +40,8 @@ export function TicketTypesList({ ticketTypes }: TicketTypesListProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [name, setName] = useState("");
     const [price, setPrice] = useState("");
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [loadingActions, setLoadingActions] = useState<Record<string, boolean>>({});
 
     // Edit state
     const [editingType, setEditingType] = useState<TicketType | null>(null);
@@ -73,13 +82,34 @@ export function TicketTypesList({ ticketTypes }: TicketTypesListProps) {
     }
 
     async function handleToggle(id: string, active: boolean) {
-        await toggleTicketType(id, active);
-        router.refresh();
+        setLoadingActions({ ...loadingActions, [`toggle-${id}`]: true });
+        try {
+            await toggleTicketType(id, active);
+            router.refresh();
+        } finally {
+            setLoadingActions({ ...loadingActions, [`toggle-${id}`]: false });
+        }
     }
+
+    const displayedTypes = ticketTypes.slice(0, itemsPerPage);
 
     return (
         <div className="space-y-4">
-            <div className="flex justify-end">
+            <div className="flex items-center justify-between">
+                <Select
+                    value={itemsPerPage.toString()}
+                    onValueChange={(value) => setItemsPerPage(parseInt(value))}
+                >
+                    <SelectTrigger className="w-[120px]">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="10">10 / page</SelectItem>
+                        <SelectItem value="20">20 / page</SelectItem>
+                        <SelectItem value="50">50 / page</SelectItem>
+                        <SelectItem value="100">100 / page</SelectItem>
+                    </SelectContent>
+                </Select>
                 <Dialog open={isOpen} onOpenChange={setIsOpen}>
                     <DialogTrigger asChild>
                         <Button>
@@ -110,6 +140,7 @@ export function TicketTypesList({ ticketTypes }: TicketTypesListProps) {
                                 />
                             </div>
                             <Button type="submit" className="w-full" disabled={isLoading}>
+                                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Créer
                             </Button>
                         </form>
@@ -141,6 +172,7 @@ export function TicketTypesList({ ticketTypes }: TicketTypesListProps) {
                             />
                         </div>
                         <Button type="submit" className="w-full" disabled={isLoading}>
+                            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Modifier
                         </Button>
                     </form>
@@ -159,7 +191,7 @@ export function TicketTypesList({ ticketTypes }: TicketTypesListProps) {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {ticketTypes.map((type) => (
+                            {displayedTypes.map((type) => (
                                 <TableRow key={type.id}>
                                     <TableCell className="whitespace-nowrap">{type.name}</TableCell>
                                     <TableCell className="whitespace-nowrap">{type.price} FCFA</TableCell>
@@ -191,9 +223,12 @@ export function TicketTypesList({ ticketTypes }: TicketTypesListProps) {
                                                 variant="ghost"
                                                 size="icon"
                                                 onClick={() => handleToggle(type.id, !type.active)}
+                                                disabled={loadingActions[`toggle-${type.id}`]}
                                                 title={type.active ? "Désactiver" : "Activer"}
                                             >
-                                                {type.active ? (
+                                                {loadingActions[`toggle-${type.id}`] ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                ) : type.active ? (
                                                     <Power className="h-4 w-4 text-green-600" />
                                                 ) : (
                                                     <PowerOff className="h-4 w-4 text-gray-400" />

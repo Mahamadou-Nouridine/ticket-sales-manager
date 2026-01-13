@@ -13,22 +13,22 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from "@/components/ui/dialog";
-import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog";
 import { createUser, toggleUserActive, updateUser } from "@/actions/users";
 import { useRouter } from "next/navigation";
-import { Plus, Power, PowerOff, Edit } from "lucide-react";
+import { Plus, Power, PowerOff, Edit, Loader2 } from "lucide-react";
 
 interface UsersListProps {
     users: User[];
@@ -38,6 +38,8 @@ export function UsersList({ users }: UsersListProps) {
     const router = useRouter();
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [loadingActions, setLoadingActions] = useState<Record<string, boolean>>({});
 
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
@@ -94,13 +96,34 @@ export function UsersList({ users }: UsersListProps) {
     }
 
     async function handleToggle(id: string, active: boolean) {
-        await toggleUserActive(id, active);
-        router.refresh();
+        setLoadingActions({ ...loadingActions, [`toggle-${id}`]: true });
+        try {
+            await toggleUserActive(id, active);
+            router.refresh();
+        } finally {
+            setLoadingActions({ ...loadingActions, [`toggle-${id}`]: false });
+        }
     }
+
+    const displayedUsers = users.slice(0, itemsPerPage);
 
     return (
         <div className="space-y-4">
-            <div className="flex justify-end">
+            <div className="flex items-center justify-between">
+                <Select
+                    value={itemsPerPage.toString()}
+                    onValueChange={(value) => setItemsPerPage(parseInt(value))}
+                >
+                    <SelectTrigger className="w-[120px]">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="10">10 / page</SelectItem>
+                        <SelectItem value="20">20 / page</SelectItem>
+                        <SelectItem value="50">50 / page</SelectItem>
+                        <SelectItem value="100">100 / page</SelectItem>
+                    </SelectContent>
+                </Select>
                 <Dialog open={isOpen} onOpenChange={setIsOpen}>
                     <DialogTrigger asChild>
                         <Button>
@@ -151,6 +174,7 @@ export function UsersList({ users }: UsersListProps) {
                                 </Select>
                             </div>
                             <Button type="submit" className="w-full" disabled={isLoading}>
+                                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Créer
                             </Button>
                         </form>
@@ -202,6 +226,7 @@ export function UsersList({ users }: UsersListProps) {
                             </Select>
                         </div>
                         <Button type="submit" className="w-full" disabled={isLoading}>
+                            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Modifier
                         </Button>
                     </form>
@@ -222,7 +247,7 @@ export function UsersList({ users }: UsersListProps) {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {users.map((user) => (
+                            {displayedUsers.map((user) => (
                                 <TableRow key={user.id}>
                                     <TableCell className="whitespace-nowrap">{user.username}</TableCell>
                                     <TableCell className="whitespace-nowrap">{user.full_name}</TableCell>
@@ -268,9 +293,12 @@ export function UsersList({ users }: UsersListProps) {
                                                 variant="ghost"
                                                 size="icon"
                                                 onClick={() => handleToggle(user.id, !user.active)}
+                                                disabled={loadingActions[`toggle-${user.id}`]}
                                                 title={user.active ? "Désactiver" : "Activer"}
                                             >
-                                                {user.active ? (
+                                                {loadingActions[`toggle-${user.id}`] ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                ) : user.active ? (
                                                     <Power className="h-4 w-4 text-green-600" />
                                                 ) : (
                                                     <PowerOff className="h-4 w-4 text-gray-400" />

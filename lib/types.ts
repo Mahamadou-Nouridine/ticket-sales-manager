@@ -44,6 +44,7 @@ export interface Sale {
     date_de_prise: string;
     date_de_versement?: string;
     verse: boolean;
+    invoice_number?: string;
     created_by: string;
     created_at: string;
     updated_at: string;

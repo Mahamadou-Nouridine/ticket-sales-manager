@@ -40,6 +40,7 @@ function SidebarContent({ className, onNavigate }: SidebarContentProps) {
         { name: "Types de Tickets", href: "/config/ticket-types" },
         { name: "Vendeurs", href: "/config/salesmen" },
         ...(isSuperuser ? [{ name: "Utilisateurs", href: "/config/users" }] : []),
+        ...(isSuperuser ? [{ name: "Logs d'Activité", href: "/admin/logs" }] : []),
     ];
 
     return (
