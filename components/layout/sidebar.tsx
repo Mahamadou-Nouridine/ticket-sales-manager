@@ -15,7 +15,7 @@ import {
     Menu,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 
@@ -155,6 +155,7 @@ export function MobileSidebar() {
                 </Button>
             </SheetTrigger>
             <SheetContent side="left" className="p-0 w-72 bg-gray-900 border-r-gray-800">
+                <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
                 <SidebarContent onNavigate={() => setOpen(false)} />
             </SheetContent>
         </Sheet>
