@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import { SaleForm } from "./sale-form";
 import { PaymentDialog } from "./payment-dialog";
+import { PaginationControl } from "@/components/ui/pagination-control";
 
 interface SalesTableProps {
     sales: Sale[];
@@ -113,23 +114,13 @@ export function SalesTable({ sales, ticketTypes, salesmen }: SalesTableProps) {
                     className="max-w-sm"
                 />
                 <div className="flex items-center gap-2">
-                    <Select
-                        value={itemsPerPage.toString()}
-                        onValueChange={(value) => {
-                            setItemsPerPage(parseInt(value));
+                    <PaginationControl
+                        itemsPerPage={itemsPerPage}
+                        onItemsPerPageChange={(value) => {
+                            setItemsPerPage(value);
                             setCurrentPage(1);
                         }}
-                    >
-                        <SelectTrigger className="w-[120px]">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="10">10 / page</SelectItem>
-                            <SelectItem value="20">20 / page</SelectItem>
-                            <SelectItem value="50">50 / page</SelectItem>
-                            <SelectItem value="100">100 / page</SelectItem>
-                        </SelectContent>
-                    </Select>
+                    />
                     <Dialog open={isNewSaleOpen} onOpenChange={setIsNewSaleOpen}>
                         <DialogTrigger asChild>
                             <Button>

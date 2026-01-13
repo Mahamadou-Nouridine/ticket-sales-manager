@@ -6,6 +6,7 @@ import { readSheet, appendRow, updateRow, deleteRow } from "@/lib/google-sheets"
 import { Sale, CreateSaleInput } from "@/lib/types";
 import { revalidatePath } from "next/cache";
 import { v4 as uuidv4 } from "uuid";
+import { adjustInventory } from "@/actions/inventory";
 
 export async function getSales() {
     const session = await getServerSession(authOptions);
@@ -98,6 +99,18 @@ export async function createSale(data: CreateSaleInput) {
 
     await appendRow("Sales Records", row);
 
+    // Adjust inventory - find ticket type ID from inventory
+    try {
+        const inventoryRows = await readSheet("Inventory");
+        const inventoryItem = inventoryRows.slice(1).find(r => r[2] === data.ticket_type_name);
+        if (inventoryItem) {
+            await adjustInventory(inventoryItem[1], -data.quantity, `Vente créée (${data.salesman_name})`);
+        }
+    } catch (error) {
+        // Continue even if inventory adjustment fails
+        console.error("Failed to adjust inventory:", error);
+    }
+
     // Audit Log
     await appendRow("Audit Logs", [
         uuidv4(),
@@ -128,18 +141,25 @@ export async function updateSale(id: string, data: Partial<Sale>) {
     const isSuperuser = (session.user as any).role === "superuser";
     const username = (session.user as any).email;
 
-    if (!isSuperuser && currentRow[7] !== username) {
+    if (!isSuperuser && currentRow[8] !== username) {
         throw new Error("Unauthorized");
     }
 
     const now = new Date().toISOString();
 
+    // Track quantity change for inventory adjustment
+    const oldQuantity = parseInt(currentRow[3]);
+    const newQuantity = data.quantity !== undefined ? data.quantity : oldQuantity;
+    const quantityDifference = newQuantity - oldQuantity;
+    const oldTicketType = currentRow[2];
+    const newTicketType = data.ticket_type_name || oldTicketType;
+
     // Construct new row preserving existing values if not updated
     const newRow = [
         id,
         data.salesman_name || currentRow[1],
-        data.ticket_type_name || currentRow[2],
-        data.quantity ? data.quantity.toString() : currentRow[3],
+        newTicketType,
+        newQuantity.toString(),
         data.date_de_prise || currentRow[4],
         data.date_de_versement || currentRow[5],
         data.verse !== undefined ? (data.verse ? "TRUE" : "FALSE") : currentRow[6],
@@ -151,6 +171,36 @@ export async function updateSale(id: string, data: Partial<Sale>) {
 
     await updateRow("Sales Records", rowIndex, newRow);
 
+    // Smart inventory adjustment
+    try {
+        const inventoryRows = await readSheet("Inventory");
+
+        // If ticket type changed, restore old type and decrease new type
+        if (oldTicketType !== newTicketType) {
+            // Restore old ticket type inventory
+            const oldInventoryItem = inventoryRows.slice(1).find(r => r[2] === oldTicketType);
+            if (oldInventoryItem) {
+                await adjustInventory(oldInventoryItem[1], oldQuantity, `Vente modifiée (type changé)`);
+            }
+
+            // Decrease new ticket type inventory
+            const newInventoryItem = inventoryRows.slice(1).find(r => r[2] === newTicketType);
+            if (newInventoryItem) {
+                await adjustInventory(newInventoryItem[1], -newQuantity, `Vente modifiée (nouveau type)`);
+            }
+        } else if (quantityDifference !== 0) {
+            // Same ticket type, just quantity changed
+            const inventoryItem = inventoryRows.slice(1).find(r => r[2] === newTicketType);
+            if (inventoryItem) {
+                // If quantity increased, decrease inventory (more sold)
+                // If quantity decreased, increase inventory (less sold)
+                await adjustInventory(inventoryItem[1], -quantityDifference, `Vente modifiée (quantité: ${oldQuantity} → ${newQuantity})`);
+            }
+        }
+    } catch (error) {
+        console.error("Failed to adjust inventory on sale update:", error);
+    }
+
     // Audit Log
     await appendRow("Audit Logs", [
         uuidv4(),
@@ -158,12 +208,13 @@ export async function updateSale(id: string, data: Partial<Sale>) {
         "UPDATE",
         "SALE",
         id,
-        `Updated sale`,
+        `Updated sale${quantityDifference !== 0 ? ` (qty: ${oldQuantity} → ${newQuantity})` : ''}`,
         now,
     ]);
 
     revalidatePath("/sales");
     revalidatePath("/dashboard");
+    revalidatePath("/inventory");
     return { success: true };
 }
 
@@ -179,7 +230,22 @@ export async function deleteSale(id: string) {
 
     if (rowIndex === -1) throw new Error("Sale not found");
 
+    const saleToDelete = rows[rowIndex];
+    const ticketTypeName = saleToDelete[2];
+    const quantity = parseInt(saleToDelete[3]);
+
     await deleteRow("Sales Records", rowIndex);
+
+    // Restore inventory
+    try {
+        const inventoryRows = await readSheet("Inventory");
+        const inventoryItem = inventoryRows.slice(1).find(r => r[2] === ticketTypeName);
+        if (inventoryItem) {
+            await adjustInventory(inventoryItem[1], quantity, `Vente supprimée`);
+        }
+    } catch (error) {
+        console.error("Failed to restore inventory:", error);
+    }
 
     // Audit Log
     await appendRow("Audit Logs", [

@@ -75,6 +75,7 @@ export function AuditLogsTable({ logs }: AuditLogsTableProps) {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Horodatage</TableHead>
+                                <TableHead>Utilisateur</TableHead>
                                 <TableHead>Action</TableHead>
                                 <TableHead>Type</TableHead>
                                 <TableHead>Détails</TableHead>
@@ -83,7 +84,7 @@ export function AuditLogsTable({ logs }: AuditLogsTableProps) {
                         <TableBody>
                             {paginatedLogs.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={4} className="text-center">
+                                    <TableCell colSpan={5} className="text-center">
                                         Aucun log trouvé.
                                     </TableCell>
                                 </TableRow>
@@ -93,13 +94,16 @@ export function AuditLogsTable({ logs }: AuditLogsTableProps) {
                                         <TableCell className="whitespace-nowrap">
                                             {new Date(log.timestamp).toLocaleString("fr-FR")}
                                         </TableCell>
+                                        <TableCell className="whitespace-nowrap">
+                                            {log.username || log.user_id}
+                                        </TableCell>
                                         <TableCell>
                                             <span
                                                 className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${log.action === "CREATE"
-                                                        ? "bg-green-100 text-green-800"
-                                                        : log.action === "UPDATE"
-                                                            ? "bg-blue-100 text-blue-800"
-                                                            : "bg-red-100 text-red-800"
+                                                    ? "bg-green-100 text-green-800"
+                                                    : log.action === "UPDATE"
+                                                        ? "bg-blue-100 text-blue-800"
+                                                        : "bg-red-100 text-red-800"
                                                     }`}
                                             >
                                                 {log.action}

@@ -53,11 +53,21 @@ export interface Sale {
 export interface AuditLog {
     id: string;
     user_id: string;
+    username?: string;
     action: string;
     entity_type: string;
     entity_id: string;
     details: string;
     timestamp: string;
+}
+
+export interface TicketInventory {
+    id: string;
+    ticket_type_id: string;
+    ticket_type_name: string;
+    current_stock: number;
+    alert_threshold: number;
+    last_updated: string;
 }
 
 // Helper types for forms

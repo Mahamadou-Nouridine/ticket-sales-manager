@@ -31,6 +31,7 @@ function SidebarContent({ className, onNavigate }: SidebarContentProps) {
     const navigation = [
         { name: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard },
         { name: "Ventes", href: "/sales", icon: Ticket },
+        { name: "Inventaire", href: "/inventory", icon: Settings },
         ...(isSuperuser
             ? [{ name: "Rapports", href: "/reports", icon: FileText }]
             : []),
