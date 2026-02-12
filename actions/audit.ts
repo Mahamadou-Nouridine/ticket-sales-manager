@@ -2,8 +2,9 @@
 
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { readSheet } from "@/lib/google-sheets";
-import { AuditLog } from "@/lib/types";
+import connectToDatabase from "@/lib/db";
+import { AuditLog, User } from "@/lib/models";
+import { AuditLog as AuditLogType } from "@/lib/types";
 
 export async function getAuditLogs() {
     const session = await getServerSession(authOptions);
@@ -11,24 +12,29 @@ export async function getAuditLogs() {
         throw new Error("Unauthorized");
     }
 
-    const logsRows = await readSheet("Audit Logs");
-    const usersRows = await readSheet("Users");
+    await connectToDatabase();
 
-    // Create a map of user_id to username
+    // Fetch logs and Populate user info manually or via populate if we set up refs
+    // For now, let's fetch users to map names, or trust the log if we stored it?
+    // The previous implementation fetched all users to map IDs to names.
+    // Our AuditLog model stores user_id.
+
+    const logs = await AuditLog.find({}).sort({ timestamp: -1 }).lean();
+    const users = await User.find({}).lean();
+
     const userMap = new Map<string, string>();
-    usersRows.slice(1).forEach((row) => {
-        userMap.set(row[0], row[1]); // id -> username
+    users.forEach((u: any) => {
+        userMap.set(u.id, u.username);
     });
 
-    // Column structure: id | user_id | action | entity_type | entity_id | details | timestamp
-    return logsRows.slice(1).map((row) => ({
-        id: row[0],
-        user_id: row[1],
-        username: userMap.get(row[1]) || "Unknown User",
-        action: row[2],
-        entity_type: row[3],
-        entity_id: row[4],
-        details: row[5],
-        timestamp: row[6],
-    }));
+    return logs.map((doc: any) => ({
+        id: doc.id,
+        user_id: doc.user_id,
+        username: userMap.get(doc.user_id) || "Unknown User",
+        action: doc.action,
+        entity_type: doc.entity_type,
+        entity_id: doc.entity_id,
+        details: doc.details,
+        timestamp: doc.timestamp,
+    })) as any[];
 }

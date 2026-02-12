@@ -1,8 +1,8 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { compare } from "bcryptjs";
-import { readSheet } from "@/lib/google-sheets";
-import { User } from "@/lib/types";
+import connectToDatabase from "@/lib/db";
+import { User } from "@/lib/models";
 
 export const authOptions: NextAuthOptions = {
     session: {
@@ -25,50 +25,31 @@ export const authOptions: NextAuthOptions = {
                 }
 
                 try {
-                    const rows = await readSheet("Users");
-
-
-
-                    const users = rows.slice(1).map((row) => ({
-                        id: row[0],
-                        username: row[1],
-                        password_hash: row[2],
-                        role: row[3] as "superuser" | "user",
-                        full_name: row[4],
-                        active: String(row[5]).toUpperCase() === "TRUE",
-                        created_at: row[6],
-                        last_login: row[7],
-                    }));
-
-
-
-                    const user = users.find((u) => u.username === credentials.username);
+                    await connectToDatabase();
+                    // Using findOne({ username }) as username should be unique
+                    const user = await User.findOne({ username: credentials.username });
 
                     if (!user) {
-
                         return null;
                     }
 
                     if (!user.active) {
-
                         return null;
                     }
 
                     const isValid = await compare(credentials.password, user.password_hash);
-
 
                     if (!isValid) {
                         return null;
                     }
 
                     return {
-                        id: user.id,
+                        id: user.id || user._id.toString(),
                         name: user.full_name,
                         email: user.username,
                         role: user.role,
                     };
                 } catch (error) {
-
                     return null;
                 }
             },
