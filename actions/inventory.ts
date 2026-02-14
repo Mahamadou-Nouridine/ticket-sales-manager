@@ -1,106 +1,36 @@
 "use server";
 
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import connectToDatabase from "@/lib/db";
 import { TicketInventory, TicketType, AuditLog } from "@/lib/models";
-import { revalidatePath } from "next/cache";
 import { v4 as uuidv4 } from "uuid";
+import { revalidateTenantPaths } from "@/lib/revalidate";
+import mongoose from "mongoose";
+import { requireTenantAccess } from "@/lib/tenant";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export async function getInventory() {
-    const session = await getServerSession(authOptions);
-    if (!session) throw new Error("Unauthorized");
-
+    const { tenantId } = await requireTenantAccess();
     await connectToDatabase();
     // Using lean for performance
-    const result = await TicketInventory.find({}).lean();
+    const result = await TicketInventory.find({ tenantId }).lean();
     return result.map((doc: any) => ({
         ...doc,
         _id: doc._id.toString()
     }));
 }
 
-export async function updateInventoryStock(ticketTypeId: string, newStock: number) {
-    const session = await getServerSession(authOptions);
-    if (!session || (session.user as any).role !== "superuser") {
-        throw new Error("Unauthorized");
-    }
-
-    await connectToDatabase();
-    const now = new Date().toISOString();
-
-    const inventoryRecord = await TicketInventory.findOneAndUpdate(
-        { ticket_type_id: ticketTypeId },
-        {
-            current_stock: newStock,
-            last_updated: now
-        },
-        { new: true }
-    );
-
-    if (!inventoryRecord) throw new Error("Inventory record not found");
-
-    await AuditLog.create({
-        id: uuidv4(),
-        user_id: (session.user as any).id,
-        action: "UPDATE",
-        entity_type: "INVENTORY",
-        entity_id: ticketTypeId,
-        details: `Updated stock to ${newStock} for ${inventoryRecord.ticket_type_name}`,
-        timestamp: now,
-    });
-
-    revalidatePath("/inventory");
-    return { success: true };
-}
-
-export async function setAlertThreshold(ticketTypeId: string, threshold: number) {
-    const session = await getServerSession(authOptions);
-    if (!session || (session.user as any).role !== "superuser") {
-        throw new Error("Unauthorized");
-    }
-
-    await connectToDatabase();
-    const now = new Date().toISOString();
-
-    const inventoryRecord = await TicketInventory.findOneAndUpdate(
-        { ticket_type_id: ticketTypeId },
-        {
-            alert_threshold: threshold,
-            last_updated: now
-        },
-        { new: true }
-    );
-
-    if (!inventoryRecord) throw new Error("Inventory record not found");
-
-    await AuditLog.create({
-        id: uuidv4(),
-        user_id: (session.user as any).id,
-        action: "UPDATE",
-        entity_type: "INVENTORY",
-        entity_id: ticketTypeId,
-        details: `Set alert threshold to ${threshold} for ${inventoryRecord.ticket_type_name}`,
-        timestamp: now,
-    });
-
-    revalidatePath("/inventory");
-    return { success: true };
-}
-
 export async function adjustInventory(ticketTypeId: string, quantityChange: number, reason: string) {
-    const session = await getServerSession(authOptions);
-    if (!session) throw new Error("Unauthorized");
-
+    const { tenantId, userId } = await requireTenantAccess();
     await connectToDatabase();
     const now = new Date().toISOString();
 
     // Check if inventory exists, if not create it
-    let inventoryRecord = await TicketInventory.findOne({ ticket_type_id: ticketTypeId });
+    let inventoryRecord = await TicketInventory.findOne({ ticket_type_id: ticketTypeId, tenantId });
 
     if (!inventoryRecord) {
         // Fetch ticket type name
-        const ticketType = await TicketType.findOne({ id: ticketTypeId });
+        const ticketType = await TicketType.findOne({ id: ticketTypeId, tenantId });
 
         if (!ticketType) {
             throw new Error("Ticket type not found");
@@ -111,6 +41,7 @@ export async function adjustInventory(ticketTypeId: string, quantityChange: numb
 
         inventoryRecord = await TicketInventory.create({
             id: uuidv4(),
+            tenantId,
             ticket_type_id: ticketTypeId,
             ticket_type_name: ticketTypeName,
             current_stock: initialStock,
@@ -120,7 +51,8 @@ export async function adjustInventory(ticketTypeId: string, quantityChange: numb
 
         await AuditLog.create({
             id: uuidv4(),
-            user_id: (session.user as any).id,
+            tenantId,
+            user_id: userId,
             action: "CREATE",
             entity_type: "INVENTORY",
             entity_id: ticketTypeId,
@@ -128,7 +60,7 @@ export async function adjustInventory(ticketTypeId: string, quantityChange: numb
             timestamp: now,
         });
 
-        revalidatePath("/inventory");
+        await revalidateTenantPaths(["/inventory"]);
         return { success: true, newStock: initialStock };
     }
 
@@ -145,7 +77,8 @@ export async function adjustInventory(ticketTypeId: string, quantityChange: numb
 
     await AuditLog.create({
         id: uuidv4(),
-        user_id: (session.user as any).id,
+        tenantId,
+        user_id: userId,
         action: "UPDATE",
         entity_type: "INVENTORY",
         entity_id: ticketTypeId,
@@ -153,7 +86,7 @@ export async function adjustInventory(ticketTypeId: string, quantityChange: numb
         timestamp: now,
     });
 
-    revalidatePath("/inventory");
+    await revalidateTenantPaths(["/inventory"]);
     return { success: true, newStock };
 }
 
@@ -169,18 +102,15 @@ export async function checkLowStock() {
 }
 
 export async function initializeInventoryForTicketType(ticketTypeId: string, ticketTypeName: string) {
-    const session = await getServerSession(authOptions);
-    if (!session || (session.user as any).role !== "superuser") {
-        throw new Error("Unauthorized");
-    }
-
+    const { tenantId } = await requireTenantAccess();
     await connectToDatabase();
 
-    const exists = await TicketInventory.exists({ ticket_type_id: ticketTypeId });
+    const exists = await TicketInventory.exists({ ticket_type_id: ticketTypeId, tenantId });
     if (exists) return { success: true };
 
     await TicketInventory.create({
         id: uuidv4(),
+        tenantId,
         ticket_type_id: ticketTypeId,
         ticket_type_name: ticketTypeName,
         current_stock: 0,
@@ -188,6 +118,64 @@ export async function initializeInventoryForTicketType(ticketTypeId: string, tic
         last_updated: new Date().toISOString(),
     });
 
-    revalidatePath("/inventory");
+    await revalidateTenantPaths(["/inventory"]);
+    return { success: true };
+}
+
+export async function updateInventoryStock(ticketTypeId: string, newStock: number) {
+    const { tenantId, userId } = await requireTenantAccess();
+    await connectToDatabase();
+
+    const inventory = await TicketInventory.findOne({ ticket_type_id: ticketTypeId, tenantId });
+
+    if (!inventory) {
+        // If not found, maybe initialize? 
+        // For now, throw error as it should exist if we are editing it
+        throw new Error("Inventory record not found");
+    }
+
+    const oldStock = inventory.current_stock;
+    inventory.current_stock = newStock;
+    inventory.last_updated = new Date().toISOString();
+    await inventory.save();
+
+    await AuditLog.create({
+        id: uuidv4(),
+        tenantId,
+        user_id: userId,
+        action: "UPDATE",
+        entity_type: "INVENTORY",
+        entity_id: ticketTypeId,
+        details: `Manually updated stock: ${oldStock} → ${newStock}`,
+        timestamp: new Date().toISOString(),
+    });
+
+    await revalidateTenantPaths(["/inventory"]);
+    return { success: true };
+}
+
+export async function setAlertThreshold(ticketTypeId: string, newThreshold: number) {
+    const { tenantId, userId } = await requireTenantAccess();
+    await connectToDatabase();
+
+    const inventory = await TicketInventory.findOne({ ticket_type_id: ticketTypeId, tenantId });
+    if (!inventory) throw new Error("Inventory record not found");
+
+    inventory.alert_threshold = newThreshold;
+    inventory.last_updated = new Date().toISOString();
+    await inventory.save();
+
+    await AuditLog.create({
+        id: uuidv4(),
+        tenantId,
+        user_id: userId,
+        action: "UPDATE",
+        entity_type: "INVENTORY",
+        entity_id: ticketTypeId,
+        details: `Updated alert threshold to ${newThreshold}`,
+        timestamp: new Date().toISOString(),
+    });
+
+    await revalidateTenantPaths(["/inventory"]);
     return { success: true };
 }

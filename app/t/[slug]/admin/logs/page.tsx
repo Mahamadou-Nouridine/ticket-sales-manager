@@ -6,8 +6,12 @@ import { AuditLogsTable } from "@/components/admin/audit-logs-table";
 
 export default async function AuditLogsPage() {
     const session = await getServerSession(authOptions);
+    const role = (session?.user as any)?.role;
+    const isOwner = role === "owner";
+    const isManager = role === "manager";
+    const canManageResults = isOwner || isManager;
 
-    if (!session || (session.user as any).role !== "superuser") {
+    if (!session || !canManageResults) {
         redirect("/dashboard");
     }
 

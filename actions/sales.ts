@@ -3,136 +3,142 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import connectToDatabase from "@/lib/db";
+import { requireTenantAccess } from "@/lib/tenant";
 import { Sale, TicketInventory, AuditLog, TicketType } from "@/lib/models";
 import { Sale as SaleType, CreateSaleInput } from "@/lib/types";
-import { revalidatePath } from "next/cache";
+import { revalidateTenantPaths } from "@/lib/revalidate";
 import { v4 as uuidv4 } from "uuid";
 import mongoose from "mongoose";
 
 export async function getSales() {
-    const session = await getServerSession(authOptions);
-    if (!session) return [];
-
+    const { tenantId, user } = await requireTenantAccess();
     await connectToDatabase();
 
-    const isSuperuser = (session.user as any).role === "superuser";
-    const username = (session.user as any).email;
+    const role = user.role;
+    const userId = user.id;
 
-    const query = isSuperuser ? {} : { created_by: username };
+    // Owners and managers see all sales in their tenant
+    // Regular users see only their own sales
+    let query: any = { tenantId };
+
+    if (role !== "owner" && role !== "manager") {
+        query.created_by = userId;
+    }
 
     // Sort by created_at desc (most recent first)
     const result = await Sale.find(query).sort({ created_at: -1 }).lean();
-
     return result.map((doc: any) => ({
         ...doc,
         _id: doc._id.toString()
     })) as SaleType[];
 }
 
-export async function getSale(id: string) {
-    const session = await getServerSession(authOptions);
-    if (!session) return null;
-
+export async function getSaleById(saleId: string) {
+    const { tenantId } = await requireTenantAccess();
     await connectToDatabase();
 
-    const sale = await Sale.findOne({ id }).lean();
-
+    const sale = await Sale.findOne({ id: saleId, tenantId }).lean();
     if (!sale) return null;
-
-    const isSuperuser = (session.user as any).role === "superuser";
-    const username = (session.user as any).email;
-
-    if (!isSuperuser && sale.created_by !== username) {
-        return null; // Not authorized
-    }
 
     return {
         ...sale,
-        _id: sale._id.toString(),
+        _id: sale._id.toString()
     } as SaleType;
 }
 
-export async function createSale(data: CreateSaleInput) {
-    const session = await getServerSession(authOptions);
-    if (!session) throw new Error("Unauthorized");
-
+export async function createSale(data: {
+    salesman_name: string;
+    ticket_type_name: string;
+    quantity: number;
+    date_de_prise: string;
+    sale_id?: string; // Optional ID if provided by frontend or auto-generated
+}) {
+    const { tenantId, userId, user } = await requireTenantAccess();
     await connectToDatabase();
-    const username = (session.user as any).email;
-    const newId = uuidv4();
-    const now = new Date().toISOString();
 
+    // Start Transaction
     const dbSession = await mongoose.startSession();
     dbSession.startTransaction();
+    console.log("Creating Sale. TenantID:", tenantId);
 
     try {
-        // Find ticket type ID for inventory adjustment
-        const ticketType = await TicketType.findOne({ name: data.ticket_type_name }).session(dbSession);
+        // 1. Check Inventory
+        // We need to find the Ticket Type ID to find the Inventory
+        // Assuming ticket_type_name is unique per tenant or we should have passed ID. 
+        // The previous code used name. Let's stick to name but it's risky. 
+        // Better to lookup TicketType by name & tenantId first.
 
-        // Even if we don't have the ticket type ID readily available from the input (which used to utilize names),
-        // we can still query inventory by ticket_type_name if needed, but ID is safer if we can get it.
-        // The current google-sheets implementation searched inventory by ticket_type_name to find the ID.
-        // Let's do the same for safety.
-
-        let invUpdateSuccess = false;
-
-        // Find Inventory by Name first
-        const inventoryItem = await TicketInventory.findOne({ ticket_type_name: data.ticket_type_name }).session(dbSession);
-
-        if (inventoryItem) {
-            // Check stock
-            if (inventoryItem.current_stock < data.quantity) {
-                throw new Error(`Insufficient stock for ${data.ticket_type_name}`);
-            }
-
-            inventoryItem.current_stock -= data.quantity;
-            inventoryItem.last_updated = now;
-            await inventoryItem.save({ session: dbSession });
-            invUpdateSuccess = true;
-        } else {
-            // If no inventory record, we might want to check if we can create it or fail.
-            // Google sheets implementation "tried" to adjust inventory and logged error if failed, but didn't stop sale?
-            // "Continue even if inventory adjustment fails" was the comment.
-            // BUT user asked for "transactions" implies they want consistency.
-            // If we can't deduct stock, creating a sale creates data drift (phantom stock).
-            // However, to mimic previous flexibility while improving safety:
-            // Let's FAIL if stock exists and is insufficient.
-            // If stock record doesn't exist, we warn?
-            // Let's assume strict inventory management is desired with providing "db interaction optimization".
-            console.warn(`No inventory record found for ${data.ticket_type_name}`);
+        const ticketType = await TicketType.findOne({ name: data.ticket_type_name, tenantId }).session(dbSession);
+        if (!ticketType) {
+            throw new Error(`Ticket Type '${data.ticket_type_name}' not found.`);
         }
 
-        // Create Sale
+        let inventoryItem = await TicketInventory.findOne({
+            ticket_type_id: ticketType.id,
+            tenantId
+        }).session(dbSession);
+
+        if (!inventoryItem) {
+            // Graceful handling: Auto-initialize inventory if missing
+            // This shouldn't happen if createTicketType is fixed, but for existing data migration safety:
+            inventoryItem = new TicketInventory({
+                id: uuidv4(),
+                tenantId: tenantId, // Explicit assignment
+                ticket_type_id: ticketType.id,
+                ticket_type_name: ticketType.name,
+                current_stock: 0,
+                alert_threshold: 50,
+                last_updated: new Date().toISOString()
+            });
+            console.log("Auto-creating inventory with tenantId:", tenantId);
+            await inventoryItem.save({ session: dbSession });
+        }
+
+        if (inventoryItem.current_stock < data.quantity) {
+            throw new Error(`Stock insuffisant. Disponible: ${inventoryItem.current_stock}, Requis: ${data.quantity}`);
+        }
+
+        // 2. Deduct Inventory
+        inventoryItem.current_stock -= data.quantity;
+        inventoryItem.last_updated = new Date().toISOString();
+        await inventoryItem.save({ session: dbSession });
+
+        // 3. Create Sale
+        const saleId = data.sale_id || uuidv4();
+        const now = new Date().toISOString();
+
         await Sale.create([{
-            id: newId,
+            id: saleId,
+            tenantId,
             salesman_name: data.salesman_name,
             ticket_type_name: data.ticket_type_name,
             quantity: data.quantity,
             date_de_prise: data.date_de_prise,
-            date_de_versement: data.date_de_versement || "",
-            verse: data.verse,
-            invoice_number: data.invoice_number || "",
-            created_by: username,
+            verse: false,
+            created_by: user.name || user.email || "Unknown",
             created_at: now,
             updated_at: now,
+            ticket_type_id: ticketType.id,
+            // salesman_id? We only have name from input. 
         }], { session: dbSession });
 
-        // Audit Log
+        // 4. Audit Log
         await AuditLog.create([{
             id: uuidv4(),
-            user_id: (session.user as any).id,
+            tenantId,
+            user_id: userId,
             action: "CREATE",
             entity_type: "SALE",
-            entity_id: newId,
-            details: `Created sale for ${data.salesman_name}`,
+            entity_id: saleId,
+            details: `Created sale of ${data.quantity} ${data.ticket_type_name} tickets for ${data.salesman_name}`,
             timestamp: now,
         }], { session: dbSession });
 
         await dbSession.commitTransaction();
         dbSession.endSession();
 
-        revalidatePath("/sales");
-        revalidatePath("/dashboard");
-        return { success: true, id: newId };
+        await revalidateTenantPaths(["/sales", "/dashboard", "/inventory"]);
+        return { success: true };
 
     } catch (error) {
         await dbSession.abortTransaction();
@@ -141,100 +147,106 @@ export async function createSale(data: CreateSaleInput) {
     }
 }
 
+
 export async function updateSale(id: string, data: Partial<SaleType>) {
-    const session = await getServerSession(authOptions);
-    if (!session) throw new Error("Unauthorized");
-
+    const { tenantId, userId, role, user } = await requireTenantAccess();
     await connectToDatabase();
-
-    // Authorization Check
-    const existingSale = await Sale.findOne({ id });
-    if (!existingSale) throw new Error("Sale not found");
-
-    const isSuperuser = (session.user as any).role === "superuser";
-    const username = (session.user as any).email;
-
-    if (!isSuperuser && existingSale.created_by !== username) {
-        throw new Error("Unauthorized");
-    }
 
     const dbSession = await mongoose.startSession();
     dbSession.startTransaction();
 
     try {
-        const oldQuantity = existingSale.quantity;
-        const newQuantity = data.quantity !== undefined ? data.quantity : oldQuantity;
-        const quantityDifference = newQuantity - oldQuantity;
-        const oldTicketType = existingSale.ticket_type_name;
-        const newTicketType = data.ticket_type_name || oldTicketType;
-        const now = new Date().toISOString();
+        const existingSale = await Sale.findOne({ id, tenantId }).session(dbSession);
+        if (!existingSale) throw new Error("Sale not found");
 
-        // 1. Revert specific inventory impacts if type changed, or adjust if quantity changed
-        // Strict consistency: operations must succeed
-
-        if (oldTicketType !== newTicketType) {
-            // Restore old stock
-            const oldInv = await TicketInventory.findOne({ ticket_type_name: oldTicketType }).session(dbSession);
-            if (oldInv) {
-                oldInv.current_stock += oldQuantity;
-                oldInv.last_updated = now;
-                await oldInv.save({ session: dbSession });
-            }
-
-            // Deduct new stock
-            const newInv = await TicketInventory.findOne({ ticket_type_name: newTicketType }).session(dbSession);
-            if (newInv) {
-                if (newInv.current_stock < newQuantity) {
-                    throw new Error(`Insufficient stock for ${newTicketType}`);
-                }
-                newInv.current_stock -= newQuantity;
-                newInv.last_updated = now;
-                await newInv.save({ session: dbSession });
-            }
-        } else if (quantityDifference !== 0) {
-            // Deduct difference (if pos, stock goes down. if neg, stock goes up)
-            const inv = await TicketInventory.findOne({ ticket_type_name: newTicketType }).session(dbSession);
-            if (inv) {
-                // Check sufficiency if taking more
-                if (quantityDifference > 0 && inv.current_stock < quantityDifference) {
-                    throw new Error(`Insufficient stock for ${newTicketType}`);
-                }
-                inv.current_stock -= quantityDifference;
-                inv.last_updated = now;
-                await inv.save({ session: dbSession });
+        // Authorization check: Superusers (owner/manager) can update all, sellers can only update their own.
+        if (role === 'seller') {
+            const username = user.username || user.email;
+            if (existingSale.created_by !== username) {
+                throw new Error("Unauthorized to update this sale");
             }
         }
 
-        // 2. Update Sale
-        const updateFields: any = { updated_at: now };
+        const updateFields: any = { updated_at: new Date().toISOString() };
         if (data.salesman_name) updateFields.salesman_name = data.salesman_name;
-        if (data.ticket_type_name) updateFields.ticket_type_name = data.ticket_type_name;
-        if (data.quantity !== undefined) updateFields.quantity = data.quantity;
         if (data.date_de_prise) updateFields.date_de_prise = data.date_de_prise;
         if (data.date_de_versement !== undefined) updateFields.date_de_versement = data.date_de_versement;
-        if (data.verse !== undefined) updateFields.verse = data.verse;
         if (data.invoice_number !== undefined) updateFields.invoice_number = data.invoice_number;
 
-        await Sale.updateOne({ id }, updateFields).session(dbSession);
+        // Handle sensitive updates (Quantity or Ticket Type)
+        // If these change, we must revert old inventory and apply new
 
-        // 3. Audit Log
-        const diffText = quantityDifference !== 0 ? ` (qty: ${oldQuantity} → ${newQuantity})` : '';
+        const oldQuantity = existingSale.quantity;
+        const newQuantity = data.quantity !== undefined ? data.quantity : oldQuantity;
+
+        const oldTicketTypeName = existingSale.ticket_type_name;
+        const newTicketTypeName = data.ticket_type_name || oldTicketTypeName;
+
+        const quantityDifference = newQuantity - oldQuantity;
+
+        if (oldTicketTypeName !== newTicketTypeName) {
+            // Complex case: Type changed. 
+            // 1. Revert old stock
+            const oldTicketType = await TicketType.findOne({ name: oldTicketTypeName, tenantId }).session(dbSession);
+            if (oldTicketType) {
+                const oldInv = await TicketInventory.findOne({ ticket_type_id: oldTicketType.id, tenantId }).session(dbSession);
+                if (oldInv) {
+                    oldInv.current_stock += oldQuantity;
+                    await oldInv.save({ session: dbSession });
+                }
+            }
+
+            // 2. Deduct new stock
+            const newTicketType = await TicketType.findOne({ name: newTicketTypeName, tenantId }).session(dbSession);
+            if (!newTicketType) throw new Error(`New Ticket Type ${newTicketTypeName} not found`);
+
+            const newInv = await TicketInventory.findOne({ ticket_type_id: newTicketType.id, tenantId }).session(dbSession);
+            if (!newInv) throw new Error(`Inventory for ${newTicketTypeName} not found`);
+
+            if (newInv.current_stock < newQuantity) throw new Error(`Insufficient stock for new type`);
+
+            newInv.current_stock -= newQuantity;
+            await newInv.save({ session: dbSession });
+
+            updateFields.ticket_type_name = newTicketTypeName;
+            updateFields.ticket_type_id = newTicketType.id;
+            updateFields.quantity = newQuantity;
+
+        } else if (quantityDifference !== 0) {
+            // Same type, just quantity change
+            const ticketType = await TicketType.findOne({ name: oldTicketTypeName, tenantId }).session(dbSession);
+            if (!ticketType) throw new Error("Ticket Type not found for inventory adjustment");
+
+            const inv = await TicketInventory.findOne({ ticket_type_id: ticketType.id, tenantId }).session(dbSession);
+            if (!inv) throw new Error("Inventory not found");
+
+            // If adding more sales (diff > 0), check stock
+            if (quantityDifference > 0 && inv.current_stock < quantityDifference) {
+                throw new Error("Insufficient stock for update");
+            }
+
+            inv.current_stock -= quantityDifference; // If diff is negative (returned), we add to stock (minus negative = plus)
+            await inv.save({ session: dbSession });
+            updateFields.quantity = newQuantity;
+        }
+
+        await Sale.updateOne({ id, tenantId }, updateFields).session(dbSession);
+
         await AuditLog.create([{
             id: uuidv4(),
-            user_id: (session.user as any).id,
+            tenantId,
+            user_id: userId,
             action: "UPDATE",
             entity_type: "SALE",
             entity_id: id,
-            details: `Updated sale${diffText}`,
-            timestamp: now,
+            details: `Updated sale details`,
+            timestamp: new Date().toISOString(),
         }], { session: dbSession });
 
         await dbSession.commitTransaction();
         dbSession.endSession();
 
-        revalidatePath("/sales");
-        revalidatePath("/dashboard");
-        revalidatePath("/inventory");
+        await revalidateTenantPaths(["/sales", "/dashboard", "/inventory"]);
         return { success: true };
 
     } catch (error) {
@@ -245,53 +257,57 @@ export async function updateSale(id: string, data: Partial<SaleType>) {
 }
 
 export async function deleteSale(id: string) {
-    const session = await getServerSession(authOptions);
-    if (!session) throw new Error("Unauthorized");
-
-    const isSuperuser = (session.user as any).role === "superuser";
-    if (!isSuperuser) throw new Error("Unauthorized");
-
+    const { tenantId, userId, role } = await requireTenantAccess();
     await connectToDatabase();
 
-    // Get sale details first to restore inventory
-    const saleToDelete = await Sale.findOne({ id });
-    if (!saleToDelete) throw new Error("Sale not found");
+    // Only superusers (owner/manager) can delete sales
+    if (role !== 'owner' && role !== 'manager') {
+        throw new Error("Unauthorized to delete sales");
+    }
 
     const dbSession = await mongoose.startSession();
     dbSession.startTransaction();
 
     try {
-        const ticketTypeName = saleToDelete.ticket_type_name;
-        const quantity = saleToDelete.quantity;
-        const now = new Date().toISOString();
+        const sale = await Sale.findOne({ id, tenantId }).session(dbSession);
+        if (!sale) throw new Error("Sale not found");
 
         // Restore inventory
-        const inventoryItem = await TicketInventory.findOne({ ticket_type_name: ticketTypeName }).session(dbSession);
-        if (inventoryItem) {
-            inventoryItem.current_stock += quantity;
-            inventoryItem.last_updated = now;
-            await inventoryItem.save({ session: dbSession });
+        // Lookup ticket type by name to get ID (or use stored ID if we had it, strictly we stored ticket_type_id in createSale)
+        // Let's try to search by ticket_type_id first if available, else name
+
+        let ticketTypeId = sale.ticket_type_id;
+        if (!ticketTypeId) {
+            const tt = await TicketType.findOne({ name: sale.ticket_type_name, tenantId }).session(dbSession);
+            ticketTypeId = tt?.id;
         }
 
-        // Delete Sale
-        await Sale.deleteOne({ id }).session(dbSession);
+        if (ticketTypeId) {
+            const inventoryItem = await TicketInventory.findOne({ ticket_type_id: ticketTypeId, tenantId }).session(dbSession);
+            if (inventoryItem) {
+                inventoryItem.current_stock += sale.quantity;
+                inventoryItem.last_updated = new Date().toISOString();
+                await inventoryItem.save({ session: dbSession });
+            }
+        }
 
-        // Audit Log
+        await Sale.deleteOne({ id, tenantId }).session(dbSession);
+
         await AuditLog.create([{
             id: uuidv4(),
-            user_id: (session.user as any).id,
+            tenantId,
+            user_id: userId,
             action: "DELETE",
             entity_type: "SALE",
             entity_id: id,
-            details: `Deleted sale`,
-            timestamp: now,
+            details: `Deleted sale: ${sale.quantity} ${sale.ticket_type_name}`,
+            timestamp: new Date().toISOString(),
         }], { session: dbSession });
 
         await dbSession.commitTransaction();
         dbSession.endSession();
 
-        revalidatePath("/sales");
-        revalidatePath("/dashboard");
+        await revalidateTenantPaths(["/sales", "/dashboard", "/inventory"]);
         return { success: true };
 
     } catch (error) {
@@ -301,47 +317,43 @@ export async function deleteSale(id: string) {
     }
 }
 
-export async function toggleSalePayment(id: string, verse: boolean, invoiceNumber?: string, paymentDate?: string) {
-    const session = await getServerSession(authOptions);
-    if (!session) throw new Error("Unauthorized");
-
+export async function toggleSalePayment(id: string) {
+    const { tenantId, userId, role, user } = await requireTenantAccess();
     await connectToDatabase();
 
-    const existingSale = await Sale.findOne({ id });
-    if (!existingSale) throw new Error("Sale not found");
+    const sale = await Sale.findOne({ id, tenantId });
+    if (!sale) throw new Error("Sale not found");
 
-    const isSuperuser = (session.user as any).role === "superuser";
-    const username = (session.user as any).email;
-
-    if (!isSuperuser && existingSale.created_by !== username) {
-        throw new Error("Unauthorized");
+    // Authorization check: Superusers (owner/manager) can toggle all, sellers can only toggle their own.
+    if (role === 'seller') {
+        const username = user.username || user.email;
+        if (sale.created_by !== username) {
+            throw new Error("Unauthorized to toggle payment for this sale");
+        }
     }
 
-    const updateFields: any = {
-        verse,
-        updated_at: new Date().toISOString()
-    };
-
-    if (verse && paymentDate) {
-        updateFields.date_de_versement = paymentDate;
-    }
-    if (verse && invoiceNumber) {
-        updateFields.invoice_number = invoiceNumber;
+    sale.verse = !sale.verse;
+    // Update date_de_versement if paid
+    if (sale.verse) {
+        sale.date_de_versement = new Date().toISOString().split('T')[0];
+    } else {
+        sale.date_de_versement = undefined;
     }
 
-    await Sale.updateOne({ id }, updateFields);
+    await sale.save();
 
+    // Audit Log (Optional for toggle, but good practice)
     await AuditLog.create({
         id: uuidv4(),
-        user_id: (session.user as any).id,
+        tenantId,
+        user_id: userId,
         action: "UPDATE",
         entity_type: "SALE",
         entity_id: id,
-        details: `Toggled payment to ${verse}${invoiceNumber ? ` with invoice ${invoiceNumber}` : ''}`,
+        details: `Toggled payment status to ${sale.verse ? "Paid" : "Unpaid"}`,
         timestamp: new Date().toISOString(),
     });
 
-    revalidatePath("/sales");
-    revalidatePath("/dashboard");
+    await revalidateTenantPaths(["/sales", "/dashboard"]);
     return { success: true };
 }

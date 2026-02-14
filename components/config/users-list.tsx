@@ -26,7 +26,7 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
-import { createUser, toggleUserActive, updateUser } from "@/actions/users";
+import { createUser, toggleUserStatus, updateUser } from "@/actions/users";
 import { useRouter } from "next/navigation";
 import { Plus, Power, PowerOff, Edit, Loader2 } from "lucide-react";
 
@@ -98,7 +98,7 @@ export function UsersList({ users }: UsersListProps) {
     async function handleToggle(id: string, active: boolean) {
         setLoadingActions({ ...loadingActions, [`toggle-${id}`]: true });
         try {
-            await toggleUserActive(id, active);
+            await toggleUserStatus(id, active);
             router.refresh();
         } finally {
             setLoadingActions({ ...loadingActions, [`toggle-${id}`]: false });

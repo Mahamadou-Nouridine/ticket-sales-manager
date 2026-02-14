@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { TicketType } from "@/lib/types";
 import {
     Table,
@@ -52,13 +53,14 @@ export function TicketTypesList({ ticketTypes }: TicketTypesListProps) {
         e.preventDefault();
         setIsLoading(true);
         try {
-            await createTicketType({ name, price: parseFloat(price) });
+            await createTicketType(name, parseFloat(price));
             setIsOpen(false);
             setName("");
             setPrice("");
             router.refresh();
-        } catch (error) {
-
+            toast.success("Type de ticket créé avec succès");
+        } catch (error: any) {
+            toast.error(error.message || "Erreur lors de la création");
         } finally {
             setIsLoading(false);
         }
@@ -81,10 +83,10 @@ export function TicketTypesList({ ticketTypes }: TicketTypesListProps) {
         }
     }
 
-    async function handleToggle(id: string, active: boolean) {
+    async function handleToggle(id: string) {
         setLoadingActions({ ...loadingActions, [`toggle-${id}`]: true });
         try {
-            await toggleTicketType(id, active);
+            await toggleTicketType(id);
             router.refresh();
         } finally {
             setLoadingActions({ ...loadingActions, [`toggle-${id}`]: false });
@@ -222,7 +224,7 @@ export function TicketTypesList({ ticketTypes }: TicketTypesListProps) {
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                onClick={() => handleToggle(type.id, !type.active)}
+                                                onClick={() => handleToggle(type.id)}
                                                 disabled={loadingActions[`toggle-${type.id}`]}
                                                 title={type.active ? "Désactiver" : "Activer"}
                                             >

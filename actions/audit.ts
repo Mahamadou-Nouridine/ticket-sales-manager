@@ -2,29 +2,33 @@
 
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { requireTenantAccess } from "@/lib/tenant";
 import connectToDatabase from "@/lib/db";
 import { AuditLog, User } from "@/lib/models";
 import { AuditLog as AuditLogType } from "@/lib/types";
 
 export async function getAuditLogs() {
-    const session = await getServerSession(authOptions);
-    if (!session || (session.user as any).role !== "superuser") {
+    const { tenantId, role } = await requireTenantAccess();
+    if (role !== "owner") {
         throw new Error("Unauthorized");
     }
 
     await connectToDatabase();
 
-    // Fetch logs and Populate user info manually or via populate if we set up refs
-    // For now, let's fetch users to map names, or trust the log if we stored it?
-    // The previous implementation fetched all users to map IDs to names.
-    // Our AuditLog model stores user_id.
+    const logs = await AuditLog.find({ tenantId }).sort({ timestamp: -1 }).lean();
 
-    const logs = await AuditLog.find({}).sort({ timestamp: -1 }).lean();
+    // Get all users for this tenant to map names
+    // We could use populate('user_id') if we set up a virtual, but user_id in AuditLog references User.id (Global UUID)
+    // Let's just fetch all users that are members of this tenant to map names
+    // Or just fetch all global users since we have the ID. 
+    // Fetching all users is fine for now as we don't expect millions.
+    // Better: Fetch users who are members of this tenant.
+
+    // Actually, AuditLog.user_id is the acting user.
     const users = await User.find({}).lean();
-
     const userMap = new Map<string, string>();
     users.forEach((u: any) => {
-        userMap.set(u.id, u.username);
+        userMap.set(u.id, u.username || u.email);
     });
 
     return logs.map((doc: any) => ({
@@ -36,5 +40,5 @@ export async function getAuditLogs() {
         entity_id: doc.entity_id,
         details: doc.details,
         timestamp: doc.timestamp,
-    })) as any[];
+    }));
 }

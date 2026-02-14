@@ -2,19 +2,57 @@ import mongoose, { Schema, model, models } from 'mongoose';
 
 // --- User Schema ---
 const userSchema = new Schema({
-    id: { type: String, required: true, unique: true }, // Keeping string ID to match existing UUID usage
-    username: { type: String, required: true, unique: true },
+    id: { type: String, required: true, unique: true },
+    email: { type: String, required: true, unique: true },
     password_hash: { type: String, required: true },
-    role: { type: String, required: true, enum: ['superuser', 'user'] },
     full_name: { type: String, required: true },
     active: { type: Boolean, default: true },
     created_at: { type: String, required: true },
-    last_login: { type: String },
 });
+
+// --- Tenant Schema ---
+const tenantSchema = new Schema({
+    id: { type: String, required: true, unique: true },
+    name: { type: String, required: true },
+    slug: { type: String, required: true, unique: true },
+    plan: { type: String, default: 'free' },
+    active: { type: Boolean, default: true },
+    created_at: { type: String, required: true },
+});
+
+// --- Membership Schema ---
+const membershipSchema = new Schema({
+    id: { type: String, required: true, unique: true },
+    userId: { type: String, required: true }, // ref removed, using virtual
+    tenantId: { type: String, required: true }, // ref removed, using virtual
+    role: { type: String, enum: ['owner', 'manager', 'seller'], required: true },
+    active: { type: Boolean, default: true },
+    created_at: { type: String, required: true },
+}, {
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
+});
+
+membershipSchema.virtual('user', {
+    ref: 'User',
+    localField: 'userId',
+    foreignField: 'id',
+    justOne: true
+});
+
+membershipSchema.virtual('tenant', {
+    ref: 'Tenant',
+    localField: 'tenantId',
+    foreignField: 'id',
+    justOne: true
+});
+
+membershipSchema.index({ userId: 1, tenantId: 1 }, { unique: true });
 
 // --- Ticket Type Schema ---
 const ticketTypeSchema = new Schema({
     id: { type: String, required: true, unique: true },
+    tenantId: { type: String, required: true, index: true },
     name: { type: String, required: true },
     price: { type: Number, required: true },
     active: { type: Boolean, default: true },
@@ -24,6 +62,7 @@ const ticketTypeSchema = new Schema({
 // --- Salesman Schema ---
 const salesmanSchema = new Schema({
     id: { type: String, required: true, unique: true },
+    tenantId: { type: String, required: true, index: true },
     name: { type: String, required: true },
     active: { type: Boolean, default: true },
     created_at: { type: String, required: true },
@@ -32,7 +71,8 @@ const salesmanSchema = new Schema({
 // --- Sale Schema ---
 const saleSchema = new Schema({
     id: { type: String, required: true, unique: true },
-    salesman_name: { type: String, required: true }, // Storing name as per current logic, could link to Salesman
+    tenantId: { type: String, required: true, index: true },
+    salesman_name: { type: String, required: true },
     ticket_type_name: { type: String, required: true },
     quantity: { type: Number, required: true },
     date_de_prise: { type: String, required: true },
@@ -42,7 +82,6 @@ const saleSchema = new Schema({
     created_by: { type: String, required: true },
     created_at: { type: String, required: true },
     updated_at: { type: String, required: true },
-    // Optional links if we want to add them for future relational integrity
     salesman_id: { type: String },
     ticket_type_id: { type: String },
 });
@@ -50,6 +89,7 @@ const saleSchema = new Schema({
 // --- Inventory Schema ---
 const ticketInventorySchema = new Schema({
     id: { type: String, required: true, unique: true },
+    tenantId: { type: String, required: true, index: true },
     ticket_type_id: { type: String, required: true },
     ticket_type_name: { type: String, required: true },
     current_stock: { type: Number, required: true, default: 0 },
@@ -60,16 +100,30 @@ const ticketInventorySchema = new Schema({
 // --- Audit Log Schema ---
 const auditLogSchema = new Schema({
     id: { type: String, required: true, unique: true },
+    tenantId: { type: String, required: true, index: true },
     user_id: { type: String, required: true },
-    action: { type: String, required: true }, // CREATE, UPDATE, DELETE
-    entity_type: { type: String, required: true }, // SALE, INVENTORY, etc.
+    action: { type: String, required: true },
+    entity_type: { type: String, required: true },
     entity_id: { type: String, required: true },
     details: { type: String, required: true },
     timestamp: { type: String, required: true },
 });
 
 // Export Models
+// Delete models if they exist to prevent HMR issues with Schema changes (Virtuals) in dev
+if (process.env.NODE_ENV !== 'production') {
+    delete models.User;
+    delete models.Tenant;
+    delete models.Membership;
+    delete models.TicketType;
+    delete models.Salesman;
+    delete models.Sale;
+    delete models.TicketInventory;
+    delete models.AuditLog;
+}
 export const User = models.User || model('User', userSchema);
+export const Tenant = models.Tenant || model('Tenant', tenantSchema);
+export const Membership = models.Membership || model('Membership', membershipSchema);
 export const TicketType = models.TicketType || model('TicketType', ticketTypeSchema);
 export const Salesman = models.Salesman || model('Salesman', salesmanSchema);
 export const Sale = models.Sale || model('Sale', saleSchema);

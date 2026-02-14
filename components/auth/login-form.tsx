@@ -4,6 +4,8 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export function LoginForm() {
     const router = useRouter();
@@ -16,18 +18,18 @@ export function LoginForm() {
         setError(null);
 
         const formData = new FormData(event.currentTarget);
-        const username = formData.get("username") as string;
+        const email = formData.get("email") as string;
         const password = formData.get("password") as string;
 
         try {
             const result = await signIn("credentials", {
-                username,
+                email,
                 password,
                 redirect: false,
             });
 
             if (result?.error) {
-                setError("Identifiants invalides");
+                setError("Email ou mot de passe incorrect");
             } else {
                 router.push("/dashboard");
                 router.refresh();
@@ -44,18 +46,19 @@ export function LoginForm() {
             <form className="space-y-6" onSubmit={onSubmit}>
                 <div>
                     <label
-                        htmlFor="username"
+                        htmlFor="email"
                         className="block text-sm font-medium text-gray-700"
                     >
-                        Nom d'utilisateur
+                        Email
                     </label>
                     <div className="mt-1">
-                        <input
-                            id="username"
-                            name="username"
-                            type="text"
+                        <Input
+                            id="email"
+                            name="email"
+                            type="email"
                             required
-                            className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+                            placeholder="nom@exemple.com"
+                            disabled={isLoading}
                         />
                     </div>
                 </div>
@@ -68,12 +71,12 @@ export function LoginForm() {
                         Mot de passe
                     </label>
                     <div className="mt-1">
-                        <input
+                        <Input
                             id="password"
                             name="password"
                             type="password"
                             required
-                            className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+                            disabled={isLoading}
                         />
                     </div>
                 </div>
@@ -85,14 +88,14 @@ export function LoginForm() {
                 )}
 
                 <div>
-                    <button
+                    <Button
                         type="submit"
                         disabled={isLoading}
-                        className="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50"
+                        className="w-full"
                     >
                         {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Se connecter
-                    </button>
+                    </Button>
                 </div>
             </form>
         </div>

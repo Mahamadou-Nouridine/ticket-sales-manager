@@ -43,7 +43,7 @@ interface SalesTableProps {
 export function SalesTable({ sales, ticketTypes, salesmen }: SalesTableProps) {
     const router = useRouter();
     const { data: session } = useSession();
-    const isSuperuser = (session?.user as any)?.role === "superuser";
+    const canDelete = (session?.user as any)?.role === "owner";
 
     const [filter, setFilter] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
@@ -228,7 +228,7 @@ export function SalesTable({ sales, ticketTypes, salesmen }: SalesTableProps) {
                                                 >
                                                     <Edit className="h-4 w-4" />
                                                 </Button>
-                                                {isSuperuser && (
+                                                {canDelete && (
                                                     <Button
                                                         variant="ghost"
                                                         size="icon"

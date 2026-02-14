@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { Salesman } from "@/lib/types";
 import {
     Table,
@@ -50,12 +51,13 @@ export function SalesmenList({ salesmen }: SalesmenListProps) {
         e.preventDefault();
         setIsLoading(true);
         try {
-            await createSalesman({ name });
+            await createSalesman(name);
             setIsOpen(false);
             setName("");
             router.refresh();
-        } catch (error) {
-
+            toast.success("Vendeur créé avec succès");
+        } catch (error: any) {
+            toast.error(error.message || "Erreur lors de la création");
         } finally {
             setIsLoading(false);
         }

@@ -32,10 +32,10 @@ import { Edit, AlertTriangle, Loader2, Plus, Minus } from "lucide-react";
 interface InventoryTableProps {
     inventory: TicketInventory[];
     ticketTypes: TicketType[];
-    isSuperuser: boolean;
+    canManage: boolean;
 }
 
-export function InventoryTable({ inventory, ticketTypes, isSuperuser }: InventoryTableProps) {
+export function InventoryTable({ inventory, ticketTypes, canManage }: InventoryTableProps) {
     const router = useRouter();
     const [editingItem, setEditingItem] = useState<TicketInventory | null>(null);
     const [newStock, setNewStock] = useState("");
@@ -103,7 +103,7 @@ export function InventoryTable({ inventory, ticketTypes, isSuperuser }: Inventor
 
     return (
         <div className="space-y-4">
-            {isSuperuser && (
+            {canManage && (
                 <div className="flex justify-end">
                     <Button onClick={() => setIsAdjustDialogOpen(true)}>
                         <Plus className="mr-2 h-4 w-4" />
@@ -219,7 +219,7 @@ export function InventoryTable({ inventory, ticketTypes, isSuperuser }: Inventor
                                 <TableHead>Seuil d'Alerte</TableHead>
                                 <TableHead>Statut</TableHead>
                                 <TableHead>Dernière MAJ</TableHead>
-                                {isSuperuser && <TableHead className="text-right">Actions</TableHead>}
+                                {canManage && <TableHead className="text-right">Actions</TableHead>}
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -251,7 +251,7 @@ export function InventoryTable({ inventory, ticketTypes, isSuperuser }: Inventor
                                         <TableCell className="whitespace-nowrap">
                                             {new Date(item.last_updated).toLocaleDateString("fr-FR")}
                                         </TableCell>
-                                        {isSuperuser && (
+                                        {canManage && (
                                             <TableCell className="text-right">
                                                 <Button
                                                     variant="ghost"

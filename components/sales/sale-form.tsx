@@ -1,4 +1,4 @@
-"use client";
+import { toast } from "sonner";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -54,8 +54,10 @@ export function SaleForm({ ticketTypes, salesmen, initialData, onSuccess }: Sale
 
             if (initialData) {
                 await updateSale(initialData.id, data);
+                toast.success("Vente modifiée avec succès");
             } else {
                 await createSale(data);
+                toast.success("Vente enregistrée avec succès");
             }
 
             if (onSuccess) {
@@ -64,8 +66,10 @@ export function SaleForm({ ticketTypes, salesmen, initialData, onSuccess }: Sale
                 router.push("/sales");
             }
             router.refresh();
-        } catch (error) {
-            setError("Une erreur est survenue");
+        } catch (error: any) {
+            console.error(error);
+            toast.error(error.message || "Une erreur est survenue lors de la création/modification de la vente");
+            setError(error.message || "Une erreur est survenue");
         } finally {
             setIsLoading(false);
         }

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import {
@@ -23,25 +23,28 @@ interface SidebarContentProps extends React.HTMLAttributes<HTMLDivElement> {
     onNavigate?: () => void;
 }
 
-function SidebarContent({ className, onNavigate }: SidebarContentProps) {
+function SidebarContent({ className, onNavigate, slug }: SidebarContentProps & { slug: string }) {
     const pathname = usePathname();
     const { data: session } = useSession();
-    const isSuperuser = (session?.user as any)?.role === "superuser";
+    const role = (session?.user as any)?.role;
+    const isOwner = role === "owner";
+    const isManager = role === "manager";
+    const canManageResults = isOwner || isManager;
 
     const navigation = [
-        { name: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard },
-        { name: "Ventes", href: "/sales", icon: Ticket },
-        { name: "Inventaire", href: "/inventory", icon: Settings },
-        ...(isSuperuser
-            ? [{ name: "Rapports", href: "/reports", icon: FileText }]
+        { name: "Tableau de bord", href: `/t/${slug}/dashboard`, icon: LayoutDashboard },
+        { name: "Ventes", href: `/t/${slug}/sales`, icon: Ticket },
+        { name: "Inventaire", href: `/t/${slug}/inventory`, icon: Settings },
+        ...(canManageResults
+            ? [{ name: "Rapports", href: `/t/${slug}/reports`, icon: FileText }]
             : []),
     ];
 
     const configNavigation = [
-        { name: "Types de Tickets", href: "/config/ticket-types" },
-        { name: "Vendeurs", href: "/config/salesmen" },
-        ...(isSuperuser ? [{ name: "Utilisateurs", href: "/config/users" }] : []),
-        ...(isSuperuser ? [{ name: "Logs d'Activité", href: "/admin/logs" }] : []),
+        { name: "Types de Tickets", href: `/t/${slug}/config/ticket-types` },
+        { name: "Vendeurs", href: `/t/${slug}/config/salesmen` },
+        ...(isOwner ? [{ name: "Utilisateurs", href: `/t/${slug}/config/users` }] : []),
+        ...(isOwner ? [{ name: "Logs d'Activité", href: `/t/${slug}/admin/logs` }] : []),
     ];
 
     return (
@@ -116,10 +119,8 @@ function SidebarContent({ className, onNavigate }: SidebarContentProps) {
                         <p className="text-sm font-medium text-white">
                             {session?.user?.name || "Utilisateur"}
                         </p>
-                        <p className="text-xs text-gray-400">
-                            {(session?.user as any)?.role === "superuser"
-                                ? "Administrateur"
-                                : "Utilisateur"}
+                        <p className="text-xs text-gray-400 font-mono capitalize">
+                            {(session?.user as any)?.role || "Utilisateur"}
                         </p>
                     </div>
                 </div>
@@ -135,15 +136,15 @@ function SidebarContent({ className, onNavigate }: SidebarContentProps) {
     );
 }
 
-export function Sidebar() {
+export function Sidebar({ slug }: { slug: string }) {
     return (
         <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0">
-            <SidebarContent />
+            <SidebarContent slug={slug} />
         </div>
     );
 }
 
-export function MobileSidebar() {
+export function MobileSidebar({ slug }: { slug: string }) {
     const [open, setOpen] = useState(false);
 
     return (
@@ -156,7 +157,7 @@ export function MobileSidebar() {
             </SheetTrigger>
             <SheetContent side="left" className="p-0 w-72 bg-gray-900 border-r-gray-800">
                 <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
-                <SidebarContent onNavigate={() => setOpen(false)} />
+                <SidebarContent onNavigate={() => setOpen(false)} slug={slug} />
             </SheetContent>
         </Sheet>
     );
