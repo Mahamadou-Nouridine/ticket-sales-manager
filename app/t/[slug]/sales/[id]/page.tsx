@@ -1,5 +1,6 @@
-import { getSale } from "@/actions/sales";
-import { getTicketTypes, getSalesmen } from "@/actions/config";
+import { getSaleById } from "@/actions/sales";
+import { getTicketTypes } from "@/actions/config";
+import { getSellers } from "@/actions/sellers";
 import { SaleForm } from "@/components/sales/sale-form";
 import { notFound } from "next/navigation";
 
@@ -9,10 +10,11 @@ interface EditSalePageProps {
     };
 }
 
-export default async function EditSalePage({ params }: EditSalePageProps) {
-    const sale = await getSale(params.id);
+export default async function EditSalePage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
+    const sale = await getSaleById(id);
     const ticketTypes = await getTicketTypes();
-    const salesmen = await getSalesmen();
+    const sellers = await getSellers();
 
     if (!sale) {
         notFound();
@@ -28,7 +30,7 @@ export default async function EditSalePage({ params }: EditSalePageProps) {
             </div>
             <SaleForm
                 ticketTypes={ticketTypes}
-                salesmen={salesmen}
+                resellers={sellers as any[]}
                 initialData={sale}
             />
         </div>

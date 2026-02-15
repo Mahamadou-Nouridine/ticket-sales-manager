@@ -5,6 +5,9 @@ import { TicketType, AuditLog, TicketInventory } from "@/lib/models";
 import { v4 as uuidv4 } from "uuid";
 import { revalidateTenantPaths } from "@/lib/revalidate";
 import { requireTenantAccess } from "@/lib/tenant";
+import { revalidatePath } from "next/cache";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 // --- Ticket Types ---
 
@@ -102,9 +105,11 @@ export async function updateTicketType(id: string, data: { name: string; price: 
 
     if (!result) throw new Error("Not found");
 
+    const session = await getServerSession(authOptions);
+
     await AuditLog.create({
         id: uuidv4(),
-        user_id: (session.user as any).id,
+        user_id: (session?.user as any).id,
         action: "UPDATE",
         entity_type: "TICKET_TYPE",
         entity_id: id,
