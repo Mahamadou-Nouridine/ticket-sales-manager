@@ -28,8 +28,8 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 import { createUser, toggleUserStatus, updateUser } from "@/actions/users";
-import { useRouter } from "next/navigation";
-import { Plus, Power, PowerOff, Edit, Loader2, MoreHorizontal } from "lucide-react";
+import { useRouter, useParams } from "next/navigation";
+import { Plus, Power, PowerOff, Edit, Loader2, MoreHorizontal, Wand2 } from "lucide-react";
 
 
 interface SalesmenListProps {
@@ -40,6 +40,8 @@ interface SalesmenListProps {
 
 export function SalesmenList({ salesmen, title, description }: SalesmenListProps) {
     const router = useRouter();
+    const params = useParams();
+    const slug = params?.slug as string;
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [email, setEmail] = useState("");
@@ -87,6 +89,20 @@ export function SalesmenList({ salesmen, title, description }: SalesmenListProps
             setIsLoading(false);
         }
     }
+
+    const suggestUsername = (first: string, last: string) => {
+        if (!first && !last) return;
+        const base = `${first.toLowerCase()}.${last.toLowerCase()}`.replace(/\s+/g, '');
+        const suggestion = slug ? `${base}.${slug}` : base;
+        setUsername(suggestion);
+    };
+
+    const suggestEditUsername = (first: string, last: string) => {
+        if (!first && !last) return;
+        const base = `${first.toLowerCase()}.${last.toLowerCase()}`.replace(/\s+/g, '');
+        const suggestion = slug ? `${base}.${slug}` : base;
+        setEditUsername(suggestion);
+    };
 
     async function onEditSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -178,11 +194,25 @@ export function SalesmenList({ salesmen, title, description }: SalesmenListProps
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-sm font-medium">Nom d&apos;utilisateur (optionnel)</label>
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-sm font-medium">Nom d&apos;utilisateur (optionnel)</label>
+                                            {(firstName || lastName) && (
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-6 px-2 text-xs text-primary"
+                                                    onClick={() => suggestUsername(firstName, lastName)}
+                                                >
+                                                    <Wand2 className="mr-1 h-3 w-3" />
+                                                    Suggérer
+                                                </Button>
+                                            )}
+                                        </div>
                                         <Input
                                             value={username}
                                             onChange={(e) => setUsername(e.target.value)}
-                                            placeholder="Ex: jean.dupon"
+                                            placeholder="Ex: jean.dupont.org"
                                         />
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
@@ -245,10 +275,25 @@ export function SalesmenList({ salesmen, title, description }: SalesmenListProps
                                 />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Nom d&apos;utilisateur (optionnel)</label>
+                                <div className="flex items-center justify-between">
+                                    <label className="text-sm font-medium">Nom d&apos;utilisateur (optionnel)</label>
+                                    {(editFirstName || editLastName) && (
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-6 px-2 text-xs text-primary"
+                                            onClick={() => suggestEditUsername(editFirstName, editLastName)}
+                                        >
+                                            <Wand2 className="mr-1 h-3 w-3" />
+                                            Suggérer
+                                        </Button>
+                                    )}
+                                </div>
                                 <Input
                                     value={editUsername}
                                     onChange={(e) => setEditUsername(e.target.value)}
+                                    placeholder="Ex: jean.dupont.org"
                                 />
                             </div>
                             <div className="grid grid-cols-2 gap-4">

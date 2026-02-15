@@ -103,7 +103,16 @@ export async function createUser(data: {
     let user = await User.findOne(query);
 
     if (!user) {
-        if (!data.password) throw new Error("Password required for new users");
+        if (!data.password) throw new Error("Un mot de passe est requis pour les nouveaux utilisateurs");
+
+        // 1b. Check if username is already taken by someone else (if provided)
+        if (username) {
+            const existingUsername = await User.findOne({ username });
+            if (existingUsername) {
+                throw new Error(`Le nom d'utilisateur "${username}" est déjà utilisé.`);
+            }
+        }
+
         // Create new Global User
         const hashedPassword = await hash(data.password, 10);
         const now = new Date().toISOString();
@@ -124,7 +133,7 @@ export async function createUser(data: {
     const userIdToLink = user.id || user._id;
     const existingMembership = await Membership.findOne({ userId: userIdToLink, tenantId });
     if (existingMembership) {
-        throw new Error("User is already a member of this tenant");
+        throw new Error("Nom d'utilisateur indisponible");
     }
 
     // 3. Create Membership

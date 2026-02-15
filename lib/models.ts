@@ -15,7 +15,7 @@ const tenantSchema = new Schema({
 const userSchema = new Schema({
     id: { type: String, required: true, unique: true },
     email: { type: String, required: true, unique: true, index: true },
-    username: { type: String, index: true },
+    username: { type: String, unique: true, sparse: true, index: true },
     first_name: { type: String, required: true },
     last_name: { type: String, required: true },
     password_hash: { type: String, required: true },

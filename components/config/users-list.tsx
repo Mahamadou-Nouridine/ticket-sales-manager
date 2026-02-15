@@ -27,8 +27,9 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 import { createUser, toggleUserStatus, updateUser } from "@/actions/users";
-import { useRouter } from "next/navigation";
-import { Plus, Power, PowerOff, Edit, Shield, Loader2 } from "lucide-react";
+import { useRouter, useParams } from "next/navigation";
+import { Plus, Power, PowerOff, Edit, Shield, Loader2, Wand2 } from "lucide-react";
+import { toast } from "sonner";
 
 
 interface UsersListProps {
@@ -39,6 +40,8 @@ interface UsersListProps {
 
 export function UsersList({ users, title, description }: UsersListProps) {
     const router = useRouter();
+    const params = useParams();
+    const slug = params?.slug as string;
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -83,12 +86,27 @@ export function UsersList({ users, title, description }: UsersListProps) {
             setPhone("");
             setRole("seller");
             router.refresh();
-        } catch (error) {
-
+            toast.success("Utilisateur créé avec succès");
+        } catch (error: any) {
+            toast.error(error.message || "Erreur lors de la création");
         } finally {
             setIsLoading(false);
         }
     }
+
+    const suggestUsername = (first: string, last: string) => {
+        if (!first && !last) return;
+        const base = `${first.toLowerCase()}.${last.toLowerCase()}`.replace(/\s+/g, '');
+        const suggestion = slug ? `${base}.${slug}` : base;
+        setUsername(suggestion);
+    };
+
+    const suggestEditUsername = (first: string, last: string) => {
+        if (!first && !last) return;
+        const base = `${first.toLowerCase()}.${last.toLowerCase()}`.replace(/\s+/g, '');
+        const suggestion = slug ? `${base}.${slug}` : base;
+        setEditUsername(suggestion);
+    };
 
     async function onEditSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -112,8 +130,9 @@ export function UsersList({ users, title, description }: UsersListProps) {
             setEditRole("seller");
             setEditPassword("");
             router.refresh();
-        } catch (error) {
-
+            toast.success("Utilisateur mis à jour");
+        } catch (error: any) {
+            toast.error(error.message || "Erreur lors de la mise à jour");
         } finally {
             setIsLoading(false);
         }
@@ -179,11 +198,25 @@ export function UsersList({ users, title, description }: UsersListProps) {
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-sm font-medium">Nom d&apos;utilisateur (optionnel)</label>
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-sm font-medium">Nom d&apos;utilisateur (optionnel)</label>
+                                            {(firstName || lastName) && (
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-6 px-2 text-xs text-primary"
+                                                    onClick={() => suggestUsername(firstName, lastName)}
+                                                >
+                                                    <Wand2 className="mr-1 h-3 w-3" />
+                                                    Suggérer
+                                                </Button>
+                                            )}
+                                        </div>
                                         <Input
                                             value={username}
                                             onChange={(e) => setUsername(e.target.value)}
-                                            placeholder="Ex: jean.dupon"
+                                            placeholder="Ex: jean.dupont.org"
                                         />
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
@@ -266,10 +299,25 @@ export function UsersList({ users, title, description }: UsersListProps) {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Nom d&apos;utilisateur (optionnel)</label>
+                                <div className="flex items-center justify-between">
+                                    <label className="text-sm font-medium">Nom d&apos;utilisateur (optionnel)</label>
+                                    {(editFirstName || editLastName) && (
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-6 px-2 text-xs text-primary"
+                                            onClick={() => suggestEditUsername(editFirstName, editLastName)}
+                                        >
+                                            <Wand2 className="mr-1 h-3 w-3" />
+                                            Suggérer
+                                        </Button>
+                                    )}
+                                </div>
                                 <Input
                                     value={editUsername}
                                     onChange={(e) => setEditUsername(e.target.value)}
+                                    placeholder="Ex: jean.dupont.org"
                                 />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
