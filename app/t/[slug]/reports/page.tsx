@@ -1,5 +1,6 @@
 import { getSales } from "@/actions/sales";
-import { getTicketTypes, getSalesmen } from "@/actions/config";
+import { getTicketTypes } from "@/actions/config";
+import { getSellers } from "@/actions/sellers";
 import { getInventory } from "@/actions/inventory";
 import { ReportsView } from "@/components/reports/reports-view";
 import { getServerSession } from "next-auth";
@@ -18,7 +19,7 @@ export default async function ReportsPage() {
 
     const sales = await getSales();
     const ticketTypes = await getTicketTypes();
-    const salesmen = await getSalesmen();
+    const resellers = await getSellers();
     const inventory = await getInventory();
 
     return (
@@ -29,7 +30,7 @@ export default async function ReportsPage() {
                     Analyse des ventes, performances et inventaire avec filtres personnalisables.
                 </p>
             </div>
-            <ReportsView sales={sales} ticketTypes={ticketTypes} salesmen={salesmen} inventory={inventory} />
+            <ReportsView sales={sales} ticketTypes={ticketTypes} resellers={resellers as any[]} inventory={inventory} />
         </div>
     );
 }

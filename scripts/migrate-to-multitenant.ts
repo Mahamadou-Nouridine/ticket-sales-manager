@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
-import { User, Tenant, Membership, Sale, TicketType, Salesman, TicketInventory, AuditLog } from '../lib/models';
+import { User, Tenant, Membership, Sale, TicketType, TicketInventory, AuditLog } from '../lib/models';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 
@@ -90,7 +90,6 @@ async function migrate() {
             const collections = [
                 { model: Sale, name: 'Sales' },
                 { model: TicketType, name: 'TicketTypes' },
-                { model: Salesman, name: 'Salesmen' },
                 { model: TicketInventory, name: 'Inventories' },
                 { model: AuditLog, name: 'AuditLogs' }
             ];

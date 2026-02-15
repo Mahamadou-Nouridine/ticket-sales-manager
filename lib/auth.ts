@@ -44,7 +44,7 @@ export const authOptions: NextAuthOptions = {
                     // Load memberships
                     const memberships = await Membership.find({ userId: user.id || user._id, active: true }).lean();
 
-                    let selectedTenantId = credentials.tenantId;
+                    let selectedTenantId: string | undefined = credentials.tenantId;
 
                     // Auto-select if only one membership and no specific tenant requested
                     if (!selectedTenantId && memberships.length === 1) {

@@ -10,7 +10,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
 export async function getInventory() {
-    const { tenantId } = await requireTenantAccess();
+    const { tenantId, role } = await requireTenantAccess();
+    if (role !== 'owner' && role !== 'manager') throw new Error("Unauthorized");
     await connectToDatabase();
     // Using lean for performance
     const result = await TicketInventory.find({ tenantId }).lean();
@@ -21,7 +22,8 @@ export async function getInventory() {
 }
 
 export async function adjustInventory(ticketTypeId: string, quantityChange: number, reason: string) {
-    const { tenantId, userId } = await requireTenantAccess();
+    const { tenantId, userId, role } = await requireTenantAccess();
+    if (role !== 'owner' && role !== 'manager') throw new Error("Unauthorized");
     await connectToDatabase();
     const now = new Date().toISOString();
 
@@ -123,7 +125,8 @@ export async function initializeInventoryForTicketType(ticketTypeId: string, tic
 }
 
 export async function updateInventoryStock(ticketTypeId: string, newStock: number) {
-    const { tenantId, userId } = await requireTenantAccess();
+    const { tenantId, userId, role } = await requireTenantAccess();
+    if (role !== 'owner' && role !== 'manager') throw new Error("Unauthorized");
     await connectToDatabase();
 
     const inventory = await TicketInventory.findOne({ ticket_type_id: ticketTypeId, tenantId });
@@ -155,7 +158,8 @@ export async function updateInventoryStock(ticketTypeId: string, newStock: numbe
 }
 
 export async function setAlertThreshold(ticketTypeId: string, newThreshold: number) {
-    const { tenantId, userId } = await requireTenantAccess();
+    const { tenantId, userId, role } = await requireTenantAccess();
+    if (role !== 'owner' && role !== 'manager') throw new Error("Unauthorized");
     await connectToDatabase();
 
     const inventory = await TicketInventory.findOne({ ticket_type_id: ticketTypeId, tenantId });

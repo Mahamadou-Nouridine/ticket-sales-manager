@@ -9,7 +9,7 @@ import { AuditLog as AuditLogType } from "@/lib/types";
 
 export async function getAuditLogs() {
     const { tenantId, role } = await requireTenantAccess();
-    if (role !== "owner") {
+    if (role !== "manager") {
         throw new Error("Unauthorized");
     }
 
@@ -28,13 +28,46 @@ export async function getAuditLogs() {
     const users = await User.find({}).lean();
     const userMap = new Map<string, string>();
     users.forEach((u: any) => {
-        userMap.set(u.id, u.username || u.email);
+        userMap.set(u.id, [u.first_name, u.last_name].filter(Boolean).join(' ') || u.username || u.email);
     });
 
     return logs.map((doc: any) => ({
         id: doc.id,
         user_id: doc.user_id,
         username: userMap.get(doc.user_id) || "Unknown User",
+        action: doc.action,
+        entity_type: doc.entity_type,
+        entity_id: doc.entity_id,
+        details: doc.details,
+        timestamp: doc.timestamp,
+    }));
+}
+
+export async function getRecentActivity(limit = 10, userId?: string) {
+    const { tenantId } = await requireTenantAccess();
+
+    await connectToDatabase();
+
+    const query: any = { tenantId };
+    if (userId) {
+        query.user_id = userId;
+    }
+
+    const logs = await AuditLog.find(query)
+        .sort({ timestamp: -1 })
+        .limit(limit)
+        .lean();
+
+    const users = await User.find({}).lean();
+    const userMap = new Map<string, string>();
+    users.forEach((u: any) => {
+        userMap.set(u.id, [u.first_name, u.last_name].filter(Boolean).join(' ') || u.username || u.email);
+    });
+
+    return logs.map((doc: any) => ({
+        id: doc.id,
+        user_id: doc.user_id,
+        username: userMap.get(doc.user_id) || "Utilisateur Inconnu",
         action: doc.action,
         entity_type: doc.entity_type,
         entity_id: doc.entity_id,

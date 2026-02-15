@@ -39,18 +39,17 @@ export default withAuth(
             // If it's not, we might fail.
         }
 
-        // Configuration and sensitive areas: Owner or Manager only
-        if (path.includes("/config/users") || path.includes("/reports")) {
-            if (role !== "owner" && role !== "manager") {
+        // Configuration and sensitive areas: Manager only
+        const managerPathPrefixes = ["/config", "/reports", "/admin", "/inventory"];
+        if (managerPathPrefixes.some(p => path.includes(p))) {
+            if (role !== "manager" && role !== "owner") {
                 return NextResponse.redirect(new URL(`/t/${(token as any).tenantSlug}/dashboard`, req.url));
             }
         }
 
-        // Example: Only owner can manage config/salesmen
-        if (path.includes("/config/salesmen")) {
-            if (role !== "owner") {
-                return NextResponse.redirect(new URL(`/t/${(token as any).tenantSlug}/dashboard`, req.url));
-            }
+        // Account page: All authenticated users
+        if (path.includes("/account")) {
+            // Already authenticated via withAuth, no additional checks needed
         }
     },
     {

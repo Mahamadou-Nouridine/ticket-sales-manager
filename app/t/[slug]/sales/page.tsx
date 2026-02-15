@@ -1,21 +1,23 @@
 import { getSales } from "@/actions/sales";
-import { getTicketTypes, getSalesmen } from "@/actions/config";
+import { getTicketTypes } from "@/actions/config";
+import { getSellers } from "@/actions/sellers";
+import { getTenantSettings } from "@/actions/tenant_settings";
 import { SalesTable } from "@/components/sales/sales-table";
 
 export default async function SalesPage() {
     const sales = await getSales();
     const ticketTypes = await getTicketTypes();
-    const salesmen = await getSalesmen();
+    const resellers = await getSellers();
+    const tenantSettings = await getTenantSettings();
 
     return (
-        <div className="space-y-8">
-            <div>
-                <h2 className="text-3xl font-bold tracking-tight">Ventes</h2>
-                <p className="text-muted-foreground">
-                    Gérez vos ventes de tickets ici.
-                </p>
-            </div>
-            <SalesTable sales={sales} ticketTypes={ticketTypes} salesmen={salesmen} />
-        </div>
+        <SalesTable
+            sales={sales}
+            ticketTypes={ticketTypes}
+            resellers={resellers as any[]}
+            currency={tenantSettings.currency}
+            title="Ventes"
+            description="Gérez vos ventes de tickets ici."
+        />
     );
 }

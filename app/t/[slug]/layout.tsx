@@ -41,15 +41,18 @@ export default async function DashboardLayout({
         }
     }
 
+    const tenant = await Tenant.findOne({ slug, active: true }).lean();
+    const tenantName = tenant?.name || "Organisation";
+
     return (
-        <div className="flex h-screen bg-muted/40">
-            <Sidebar slug={slug} />
-            <div className="flex-1 flex flex-col md:pl-64 transition-all duration-300">
-                <header className="flex h-14 items-center gap-4 border-b bg-background px-6 md:hidden">
-                    <MobileSidebar slug={slug} />
-                    <div className="font-semibold">Ticket Manager</div>
+        <div className="flex min-h-[100dvh] bg-background">
+            <Sidebar slug={slug} tenantName={tenantName} />
+            <div className="flex-1 flex flex-col md:pl-64 transition-all duration-300 min-w-0 overflow-x-hidden max-w-full">
+                <header className="flex h-16 items-center gap-4 border-b bg-background px-6 md:hidden sticky top-0 z-10">
+                    <MobileSidebar slug={slug} tenantName={tenantName} />
+                    <div className="font-semibold">Vendora</div>
                 </header>
-                <main className="flex-1 overflow-y-auto p-4 md:p-8">
+                <main className="flex-1 p-4 md:p-8 bg-muted/20">
                     {children}
                 </main>
             </div>

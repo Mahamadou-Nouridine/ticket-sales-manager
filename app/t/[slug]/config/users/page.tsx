@@ -5,14 +5,10 @@ export default async function UsersPage() {
     const users = await getUsers();
 
     return (
-        <div className="space-y-8">
-            <div>
-                <h2 className="text-3xl font-bold tracking-tight">Utilisateurs</h2>
-                <p className="text-muted-foreground">
-                    Gérez les utilisateurs du système.
-                </p>
-            </div>
-            <UsersList users={users} />
-        </div>
+        <UsersList
+            users={users as any[]}
+            title="Utilisateurs"
+            description="Gérez les comptes utilisateurs et les accès à votre organisation."
+        />
     );
 }

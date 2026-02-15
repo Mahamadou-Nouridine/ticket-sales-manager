@@ -49,15 +49,14 @@ export function LoginForm() {
                         htmlFor="email"
                         className="block text-sm font-medium text-gray-700"
                     >
-                        Email
+                        Email / Nom d'utilisateur
                     </label>
                     <div className="mt-1">
                         <Input
                             id="email"
                             name="email"
-                            type="email"
+                            type="text"
                             required
-                            placeholder="nom@exemple.com"
                             disabled={isLoading}
                         />
                     </div>

@@ -29,13 +29,16 @@ import { updateInventoryStock, setAlertThreshold, adjustInventory } from "@/acti
 import { useRouter } from "next/navigation";
 import { Edit, AlertTriangle, Loader2, Plus, Minus } from "lucide-react";
 
+
 interface InventoryTableProps {
     inventory: TicketInventory[];
     ticketTypes: TicketType[];
     canManage: boolean;
+    title?: string;
+    description?: string;
 }
 
-export function InventoryTable({ inventory, ticketTypes, canManage }: InventoryTableProps) {
+export function InventoryTable({ inventory, ticketTypes, canManage, title, description }: InventoryTableProps) {
     const router = useRouter();
     const [editingItem, setEditingItem] = useState<TicketInventory | null>(null);
     const [newStock, setNewStock] = useState("");
@@ -102,175 +105,196 @@ export function InventoryTable({ inventory, ticketTypes, canManage }: InventoryT
     }
 
     return (
-        <div className="space-y-4">
-            {canManage && (
-                <div className="flex justify-end">
-                    <Button onClick={() => setIsAdjustDialogOpen(true)}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Ajuster le Stock
-                    </Button>
+        <div className="max-w-full overflow-x-hidden">
+            <div className="space-y-4">
+                <div>
+                    <div>
+                        {title && <h2 className="text-2xl md:text-3xl font-bold tracking-tight">{title}</h2>}
+                        {description && <p className="text-sm md:text-base text-muted-foreground">{description}</p>}
+                    </div>
+
+                    <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div className="hidden md:block">
+                            {/* Desktop only space or additional actions */}
+                        </div>
+                        {canManage && (
+                            <div className="flex justify-end w-full sm:w-auto">
+                                <Button onClick={() => setIsAdjustDialogOpen(true)} className="w-full sm:w-auto">
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    Ajuster le Stock
+                                </Button>
+                            </div>
+                        )}
+                    </div>
                 </div>
-            )}
 
-            {/* Adjustment Dialog */}
-            <Dialog open={isAdjustDialogOpen} onOpenChange={setIsAdjustDialogOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Ajuster le Stock</DialogTitle>
-                    </DialogHeader>
-                    <form onSubmit={handleAdjustInventory} className="space-y-4">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Type de Ticket</label>
-                            <Select value={selectedTicketType} onValueChange={setSelectedTicketType}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Sélectionner un type" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {ticketTypes.filter(t => t.active).map((type) => (
-                                        <SelectItem key={type.id} value={type.id}>
-                                            {type.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Type d'Ajustement</label>
-                            <Select value={adjustmentType} onValueChange={(v) => setAdjustmentType(v as "add" | "remove")}>
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="add">Ajouter au stock</SelectItem>
-                                    <SelectItem value="remove">Retirer du stock</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Quantité</label>
-                            <Input
-                                type="number"
-                                min="1"
-                                value={adjustmentQuantity}
-                                onChange={(e) => setAdjustmentQuantity(e.target.value)}
-                                placeholder="Entrer la quantité"
-                                required
-                            />
-                        </div>
-                        <Button type="submit" className="w-full" disabled={isLoading}>
-                            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            {adjustmentType === "add" ? <Plus className="mr-2 h-4 w-4" /> : <Minus className="mr-2 h-4 w-4" />}
-                            Confirmer
-                        </Button>
-                    </form>
-                </DialogContent>
-            </Dialog>
+                {/* Desktop Title Space handled above */}
+                <div className="hidden md:block">
+                </div>
 
-            {/* Edit Dialog */}
-            <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Gérer l'Inventaire - {editingItem?.ticket_type_name}</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                        <form onSubmit={handleUpdateStock} className="space-y-4">
+                {/* Adjustment Dialog */}
+                <Dialog open={isAdjustDialogOpen} onOpenChange={setIsAdjustDialogOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Ajuster le Stock</DialogTitle>
+                        </DialogHeader>
+                        <form onSubmit={handleAdjustInventory} className="space-y-4">
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Stock Actuel</label>
+                                <label className="text-sm font-medium">Type de Ticket</label>
+                                <Select value={selectedTicketType} onValueChange={setSelectedTicketType}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Sélectionner un type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {ticketTypes.filter(t => t.active).map((type) => (
+                                            <SelectItem key={type.id} value={type.id}>
+                                                {type.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Type d'Ajustement</label>
+                                <Select value={adjustmentType} onValueChange={(v) => setAdjustmentType(v as "add" | "remove")}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="add">Ajouter au stock</SelectItem>
+                                        <SelectItem value="remove">Retirer du stock</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Quantité</label>
                                 <Input
                                     type="number"
-                                    value={newStock}
-                                    onChange={(e) => setNewStock(e.target.value)}
-                                    placeholder={editingItem?.current_stock.toString()}
+                                    min="1"
+                                    value={adjustmentQuantity}
+                                    onChange={(e) => setAdjustmentQuantity(e.target.value)}
+                                    placeholder="Entrer la quantité"
                                     required
                                 />
                             </div>
                             <Button type="submit" className="w-full" disabled={isLoading}>
                                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Mettre à jour le Stock
+                                {adjustmentType === "add" ? <Plus className="mr-2 h-4 w-4" /> : <Minus className="mr-2 h-4 w-4" />}
+                                Confirmer
                             </Button>
                         </form>
-                        <form onSubmit={handleUpdateThreshold} className="space-y-4">
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Seuil d'Alerte</label>
-                                <Input
-                                    type="number"
-                                    value={newThreshold}
-                                    onChange={(e) => setNewThreshold(e.target.value)}
-                                    placeholder={editingItem?.alert_threshold.toString()}
-                                    required
-                                />
-                            </div>
-                            <Button type="submit" variant="outline" className="w-full" disabled={isLoading}>
-                                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Mettre à jour le Seuil
-                            </Button>
-                        </form>
-                    </div>
-                </DialogContent>
-            </Dialog>
+                    </DialogContent>
+                </Dialog>
 
-            <div className="rounded-md border overflow-hidden">
-                <div className="overflow-x-auto">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Type de Ticket</TableHead>
-                                <TableHead>Stock Actuel</TableHead>
-                                <TableHead>Seuil d'Alerte</TableHead>
-                                <TableHead>Statut</TableHead>
-                                <TableHead>Dernière MAJ</TableHead>
-                                {canManage && <TableHead className="text-right">Actions</TableHead>}
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {inventory.map((item) => {
-                                const isLowStock = item.current_stock <= item.alert_threshold;
-                                return (
-                                    <TableRow key={item.id}>
-                                        <TableCell className="whitespace-nowrap font-medium">
-                                            {item.ticket_type_name}
-                                        </TableCell>
-                                        <TableCell className="whitespace-nowrap">
-                                            <span className={isLowStock ? "text-red-600 font-semibold" : ""}>
-                                                {item.current_stock}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell>{item.alert_threshold}</TableCell>
-                                        <TableCell>
-                                            {isLowStock ? (
-                                                <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">
-                                                    <AlertTriangle className="h-3 w-3" />
-                                                    Stock Faible
-                                                </span>
-                                            ) : (
-                                                <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
-                                                    OK
-                                                </span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell className="whitespace-nowrap">
-                                            {new Date(item.last_updated).toLocaleDateString("fr-FR")}
-                                        </TableCell>
-                                        {canManage && (
-                                            <TableCell className="text-right">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => {
-                                                        setEditingItem(item);
-                                                        setNewStock(item.current_stock.toString());
-                                                        setNewThreshold(item.alert_threshold.toString());
-                                                    }}
-                                                >
-                                                    <Edit className="h-4 w-4" />
-                                                </Button>
+                {/* Edit Dialog */}
+                <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Gérer l'Inventaire - {editingItem?.ticket_type_name}</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                            <form onSubmit={handleUpdateStock} className="space-y-4">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">Stock Actuel</label>
+                                    <Input
+                                        type="number"
+                                        value={newStock}
+                                        onChange={(e) => setNewStock(e.target.value)}
+                                        placeholder={editingItem?.current_stock.toString()}
+                                        required
+                                    />
+                                </div>
+                                <Button type="submit" className="w-full" disabled={isLoading}>
+                                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Mettre à jour le Stock
+                                </Button>
+                            </form>
+                            <form onSubmit={handleUpdateThreshold} className="space-y-4">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">Seuil d'Alerte</label>
+                                    <Input
+                                        type="number"
+                                        value={newThreshold}
+                                        onChange={(e) => setNewThreshold(e.target.value)}
+                                        placeholder={editingItem?.alert_threshold.toString()}
+                                        required
+                                    />
+                                </div>
+                                <Button type="submit" variant="outline" className="w-full" disabled={isLoading}>
+                                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Mettre à jour le Seuil
+                                </Button>
+                            </form>
+                        </div>
+                    </DialogContent>
+                </Dialog>
+
+                <div className="rounded-md border overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <Table>
+                            <TableHeader className="sticky md:top-0 z-10 bg-background shadow-sm">
+                                <TableRow>
+                                    <TableHead>Type de Ticket</TableHead>
+                                    <TableHead>Stock Actuel</TableHead>
+                                    <TableHead>Seuil d'Alerte</TableHead>
+                                    <TableHead>Statut</TableHead>
+                                    <TableHead>Dernière MAJ</TableHead>
+                                    {canManage && <TableHead className="text-right">Actions</TableHead>}
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {inventory.map((item) => {
+                                    const isLowStock = item.current_stock <= item.alert_threshold;
+                                    return (
+                                        <TableRow key={item.id}>
+                                            <TableCell className="whitespace-nowrap font-medium">
+                                                {item.ticket_type_name}
                                             </TableCell>
-                                        )}
-                                    </TableRow>
-                                );
-                            })}
-                        </TableBody>
-                    </Table>
+                                            <TableCell className="whitespace-nowrap">
+                                                <span className={isLowStock ? "text-red-600 font-semibold" : ""}>
+                                                    {item.current_stock}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell>{item.alert_threshold}</TableCell>
+                                            <TableCell>
+                                                {isLowStock ? (
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">
+                                                        <AlertTriangle className="h-3 w-3" />
+                                                        Stock Faible
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+                                                        OK
+                                                    </span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="whitespace-nowrap">
+                                                {new Date(item.last_updated).toLocaleDateString("fr-FR")}
+                                            </TableCell>
+                                            {canManage && (
+                                                <TableCell className="text-right">
+                                                    <div className="flex justify-end space-x-1 sm:space-x-2">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={() => {
+                                                                setEditingItem(item);
+                                                                setNewStock(item.current_stock.toString());
+                                                                setNewThreshold(item.alert_threshold.toString());
+                                                            }}
+                                                            className="h-8 w-8"
+                                                        >
+                                                            <Edit className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                </TableCell>
+                                            )}
+                                        </TableRow>
+                                    );
+                                })}
+                            </TableBody>
+                        </Table>
+                    </div>
                 </div>
             </div>
         </div>

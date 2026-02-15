@@ -31,6 +31,7 @@ import { createTicketType, toggleTicketType, updateTicketType } from "@/actions/
 import { useRouter } from "next/navigation";
 import { Plus, Power, PowerOff, Edit, Loader2 } from "lucide-react";
 
+
 interface TicketTypesListProps {
     ticketTypes: TicketType[];
 }
@@ -96,58 +97,60 @@ export function TicketTypesList({ ticketTypes }: TicketTypesListProps) {
     const displayedTypes = ticketTypes.slice(0, itemsPerPage);
 
     return (
-        <div className="space-y-4">
-            <div className="flex items-center justify-between">
-                <Select
-                    value={itemsPerPage.toString()}
-                    onValueChange={(value) => setItemsPerPage(parseInt(value))}
-                >
-                    <SelectTrigger className="w-[120px]">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="10">10 / page</SelectItem>
-                        <SelectItem value="20">20 / page</SelectItem>
-                        <SelectItem value="50">50 / page</SelectItem>
-                        <SelectItem value="100">100 / page</SelectItem>
-                    </SelectContent>
-                </Select>
-                <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                    <DialogTrigger asChild>
-                        <Button>
-                            <Plus className="mr-2 h-4 w-4" />
-                            Nouveau Type
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>Ajouter un Type de Ticket</DialogTitle>
-                        </DialogHeader>
-                        <form onSubmit={onSubmit} className="space-y-4">
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Nom</label>
-                                <Input
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    required
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Prix (FCFA)</label>
-                                <Input
-                                    type="number"
-                                    value={price}
-                                    onChange={(e) => setPrice(e.target.value)}
-                                    required
-                                />
-                            </div>
-                            <Button type="submit" className="w-full" disabled={isLoading}>
-                                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Créer
+        <div className="max-w-full overflow-x-hidden">
+            <div className="mb-4">
+                <div className="flex items-center justify-between">
+                    <Select
+                        value={itemsPerPage.toString()}
+                        onValueChange={(value) => setItemsPerPage(parseInt(value))}
+                    >
+                        <SelectTrigger className="w-[120px] bg-background">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="10">10 / page</SelectItem>
+                            <SelectItem value="20">20 / page</SelectItem>
+                            <SelectItem value="50">50 / page</SelectItem>
+                            <SelectItem value="100">100 / page</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+                        <DialogTrigger asChild>
+                            <Button>
+                                <Plus className="mr-2 h-4 w-4" />
+                                Nouveau Type
                             </Button>
-                        </form>
-                    </DialogContent>
-                </Dialog>
+                        </DialogTrigger>
+                        <DialogContent aria-describedby={undefined}>
+                            <DialogHeader>
+                                <DialogTitle>Ajouter un Type de Ticket</DialogTitle>
+                            </DialogHeader>
+                            <form onSubmit={onSubmit} className="space-y-4">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">Nom</label>
+                                    <Input
+                                        value={name}
+                                        onChange={(e) => setName(e.target.value)}
+                                        required
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">Prix (FCFA)</label>
+                                    <Input
+                                        type="number"
+                                        value={price}
+                                        onChange={(e) => setPrice(e.target.value)}
+                                        required
+                                    />
+                                </div>
+                                <Button type="submit" className="w-full" disabled={isLoading}>
+                                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Créer
+                                </Button>
+                            </form>
+                        </DialogContent>
+                    </Dialog>
+                </div>
             </div>
 
             <Dialog open={!!editingType} onOpenChange={(open) => !open && setEditingType(null)}>
@@ -184,7 +187,7 @@ export function TicketTypesList({ ticketTypes }: TicketTypesListProps) {
             <div className="rounded-md border overflow-hidden">
                 <div className="overflow-x-auto">
                     <Table>
-                        <TableHeader>
+                        <TableHeader className="sticky md:top-0 z-10 bg-background shadow-sm">
                             <TableRow>
                                 <TableHead>Nom</TableHead>
                                 <TableHead>Prix</TableHead>
@@ -209,7 +212,7 @@ export function TicketTypesList({ ticketTypes }: TicketTypesListProps) {
                                         )}
                                     </TableCell>
                                     <TableCell className="text-right">
-                                        <div className="flex justify-end space-x-2">
+                                        <div className="flex justify-end space-x-1 sm:space-x-2">
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
@@ -218,6 +221,7 @@ export function TicketTypesList({ ticketTypes }: TicketTypesListProps) {
                                                     setEditName(type.name);
                                                     setEditPrice(type.price.toString());
                                                 }}
+                                                className="h-8 w-8"
                                             >
                                                 <Edit className="h-4 w-4" />
                                             </Button>
@@ -227,6 +231,7 @@ export function TicketTypesList({ ticketTypes }: TicketTypesListProps) {
                                                 onClick={() => handleToggle(type.id)}
                                                 disabled={loadingActions[`toggle-${type.id}`]}
                                                 title={type.active ? "Désactiver" : "Activer"}
+                                                className="h-8 w-8"
                                             >
                                                 {loadingActions[`toggle-${type.id}`] ? (
                                                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -245,5 +250,6 @@ export function TicketTypesList({ ticketTypes }: TicketTypesListProps) {
                 </div>
             </div>
         </div>
+        // </di                                                             v >
     );
 }

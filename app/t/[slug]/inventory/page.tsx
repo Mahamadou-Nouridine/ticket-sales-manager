@@ -15,19 +15,20 @@ export default async function InventoryPage() {
     const inventory = await getInventory();
     const ticketTypes = await getTicketTypes();
     const role = (session.user as any).role;
-    const canManageInventory = role === "owner" || role === "manager";
+
+    if (role !== "owner" && role !== "manager") {
+        redirect(`/t/${(session.user as any).tenantSlug}/dashboard`);
+    }
+
+    const canManageInventory = true; // If they are here, they can manage it (or at least view it as manager)
 
     return (
-        <div className="space-y-6">
-            <div>
-                <h1 className="text-3xl font-bold">Inventaire des Tickets</h1>
-                <p className="text-muted-foreground">
-                    {canManageInventory
-                        ? "Gérez le stock de tickets disponibles"
-                        : "Consultez le stock de tickets disponibles"}
-                </p>
-            </div>
-            <InventoryTable inventory={inventory} ticketTypes={ticketTypes} canManage={canManageInventory} />
-        </div>
+        <InventoryTable
+            inventory={inventory}
+            ticketTypes={ticketTypes}
+            canManage={canManageInventory}
+            title="Inventaire des Tickets"
+            description={canManageInventory ? "Gérez le stock de tickets disponibles" : "Consultez le stock de tickets disponibles"}
+        />
     );
 }

@@ -1,18 +1,14 @@
-import { getSalesmen } from "@/actions/config";
+import { getSellers } from "@/actions/sellers";
 import { SalesmenList } from "@/components/config/salesmen-list";
 
 export default async function SalesmenPage() {
-    const salesmen = await getSalesmen();
+    const salesmen = await getSellers();
 
     return (
-        <div className="space-y-8">
-            <div>
-                <h2 className="text-3xl font-bold tracking-tight">Vendeurs</h2>
-                <p className="text-muted-foreground">
-                    Gérez les vendeurs.
-                </p>
-            </div>
-            <SalesmenList salesmen={salesmen} />
-        </div>
+        <SalesmenList
+            salesmen={salesmen}
+            title="Vendeurs"
+            description="Gérez vos vendeurs et leurs accès à l'organisation."
+        />
     );
 }

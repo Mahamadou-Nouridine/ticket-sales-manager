@@ -3,7 +3,7 @@
 import connectToDatabase from "@/lib/db";
 import { User, Membership, AuditLog, Tenant } from "@/lib/models";
 import { v4 as uuidv4 } from "uuid";
-import { hash } from "bcryptjs";
+import { hash, compare } from "bcryptjs";
 import { revalidateTenantPaths } from "@/lib/revalidate";
 import { requireTenantAccess } from "@/lib/tenant";
 import { getServerSession } from "next-auth";
@@ -13,8 +13,8 @@ import { revalidatePath } from "next/cache";
 // List users in the CURRENT TENANT
 export async function getUsers() {
     const { tenantId, role } = await requireTenantAccess();
-    if (role !== 'owner' && role !== 'manager') {
-        throw new Error("Unauthorized: Only owners and managers can view users");
+    if (role !== 'manager') {
+        throw new Error("Unauthorized: Only managers can view users");
     }
 
     await connectToDatabase();
@@ -28,13 +28,15 @@ export async function getUsers() {
         if (!u) return null;
         return {
             id: u.id,
-            username: u.username || u.email,
+            username: u.username,
             email: u.email,
+            first_name: u.first_name,
+            last_name: u.last_name,
             full_name: u.full_name,
             role: m.role, // Use membership role
             active: m.active, // Use membership status
             created_at: m.created_at, // Membership created_at
-            last_login: u.last_login
+            phone: u.phone
         };
     }).filter(Boolean);
 }
@@ -75,18 +77,30 @@ export async function getMyTenants() {
 }
 
 // Add a user to the tenant (Invite flow simplified)
-export async function createUser(data: { username: string; full_name: string; password?: string, role: 'manager' | 'seller' }) {
+export async function createUser(data: {
+    email: string;
+    username?: string;
+    first_name: string;
+    last_name: string;
+    password?: string;
+    role: 'manager' | 'seller'
+}) {
     const { tenantId, userId, role } = await requireTenantAccess();
-    if (role !== 'owner') {
-        throw new Error("Unauthorized: Only owners can add users");
+    if (role !== 'manager') {
+        throw new Error("Unauthorized: Only managers can add users");
     }
 
     await connectToDatabase();
 
-    const email = data.username; // Assuming username is email now for multi-tenancy identity
+    const email = data.email.toLowerCase();
+    const username = data.username?.toLowerCase();
 
-    // 1. Check if user exists globally
-    let user = await User.findOne({ $or: [{ email }, { username: email }] });
+    // 1. Check if user exists globally by email or username
+    const query = username
+        ? { $or: [{ email }, { username }] }
+        : { email };
+
+    let user = await User.findOne(query);
 
     if (!user) {
         if (!data.password) throw new Error("Password required for new users");
@@ -95,9 +109,11 @@ export async function createUser(data: { username: string; full_name: string; pa
         const now = new Date().toISOString();
         user = await User.create({
             id: uuidv4(),
-            username: email, // Legacy support
+            username: username,
             email: email,
-            full_name: data.full_name,
+            first_name: data.first_name,
+            last_name: data.last_name,
+            full_name: `${data.first_name} ${data.last_name}`,
             password_hash: hashedPassword,
             active: true,
             created_at: now
@@ -105,7 +121,8 @@ export async function createUser(data: { username: string; full_name: string; pa
     }
 
     // 2. Check if already a member of this tenant
-    const existingMembership = await Membership.findOne({ userId: user.id || user._id, tenantId });
+    const userIdToLink = user.id || user._id;
+    const existingMembership = await Membership.findOne({ userId: userIdToLink, tenantId });
     if (existingMembership) {
         throw new Error("User is already a member of this tenant");
     }
@@ -114,7 +131,7 @@ export async function createUser(data: { username: string; full_name: string; pa
     const now = new Date().toISOString();
     await Membership.create({
         id: uuidv4(),
-        userId: user.id || user._id,
+        userId: userIdToLink,
         tenantId,
         role: data.role,
         active: true,
@@ -133,14 +150,97 @@ export async function createUser(data: { username: string; full_name: string; pa
         timestamp: now,
     });
 
-    await revalidateTenantPaths(["/config/users"]);
+    await revalidateTenantPaths(["/users", "/config/salesmen"]);
     return { success: true };
 }
 
+/**
+ * Update current user's password
+ */
+export async function updateMyPassword(currentPassword: string, newPassword: string) {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+        throw new Error("Non authentifié");
+    }
+
+    await connectToDatabase();
+    const userId = (session.user as any).id;
+
+    const user = await User.findOne({ id: userId });
+    if (!user) {
+        throw new Error("Utilisateur non trouvé");
+    }
+
+    // Verify current password
+    const isValid = await compare(currentPassword, user.password_hash);
+    if (!isValid) {
+        throw new Error("Mot de passe actuel incorrect");
+    }
+
+    // Hash and update new password
+    const password_hash = await hash(newPassword, 10);
+    user.password_hash = password_hash;
+    await user.save();
+
+    return { success: true };
+}
+
+/**
+ * Update current user's profile
+ */
+export async function updateMyProfile(data: {
+    first_name?: string;
+    last_name?: string;
+    username?: string;
+    email?: string;
+    phone?: string
+}) {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+        throw new Error("Non authentifié");
+    }
+
+    await connectToDatabase();
+    const userId = (session.user as any).id;
+
+    const user = await User.findOne({ id: userId });
+    if (!user) {
+        throw new Error("Utilisateur non trouvé");
+    }
+
+    // Update fields
+    if (data.first_name) user.first_name = data.first_name;
+    if (data.last_name) user.last_name = data.last_name;
+    if (data.first_name || data.last_name) {
+        user.full_name = `${user.first_name} ${user.last_name}`;
+    }
+    if (data.username !== undefined) {
+        if (data.username && data.username !== user.username) {
+            const existing = await User.findOne({ username: data.username.toLowerCase(), id: { $ne: userId } });
+            if (existing) throw new Error("Ce nom d'utilisateur est déjà utilisé");
+        }
+        user.username = data.username || undefined;
+    }
+    if (data.email) {
+        // Check if email is already taken
+        const existing = await User.findOne({ email: data.email, id: { $ne: userId } });
+        if (existing) {
+            throw new Error("Cet email est déjà utilisé");
+        }
+        user.email = data.email;
+    }
+    if (data.phone !== undefined) user.phone = data.phone;
+
+    await user.save();
+
+    return { success: true };
+}
+
+
 export async function toggleUserStatus(id: string, active: boolean) {
     const { tenantId, role, userId } = await requireTenantAccess();
-    if (role !== 'owner') {
-        throw new Error("Unauthorized: Only owners can manage users");
+    if (role !== 'manager') {
+        throw new Error("Unauthorized: Only managers can manage users");
     }
 
     await connectToDatabase();
@@ -174,10 +274,17 @@ export async function toggleUserStatus(id: string, active: boolean) {
     return { success: true };
 }
 
-export async function updateUser(id: string, data: { username?: string; full_name?: string; password?: string; role?: string }) {
+export async function updateUser(id: string, data: {
+    username?: string;
+    email?: string;
+    first_name?: string;
+    last_name?: string;
+    password?: string;
+    role?: string
+}) {
     const { tenantId, role: currentUserRole, userId: currentUserId } = await requireTenantAccess();
-    if (currentUserRole !== 'owner') {
-        throw new Error("Unauthorized: Only owners can update users");
+    if (currentUserRole !== 'manager') {
+        throw new Error("Unauthorized: Only managers can update users");
     }
 
     await connectToDatabase();
@@ -191,29 +298,37 @@ export async function updateUser(id: string, data: { username?: string; full_nam
     const userToUpdate = membership.user;
 
     // 2. Update Global User Data (if provided)
-    // Note: Updating username/email change it GLOBALLY. This might be dangerous in a real multi-tenant app.
-    // For now, we allow it but we should be careful.
-    if (data.username || data.full_name || data.password) {
+    if (data.username || data.email || data.first_name || data.last_name || data.password) {
         const updateFields: any = {};
-        if (data.username) {
-            // Check uniqueness if changing
-            if (data.username !== userToUpdate.email && data.username !== userToUpdate.username) {
-                const existing = await User.findOne({
-                    $or: [{ email: data.username }, { username: data.username }],
-                    _id: { $ne: userToUpdate._id }
-                });
-                if (existing) throw new Error("Email/Username already taken");
-                updateFields.username = data.username;
-                updateFields.email = data.username;
+        if (data.username !== undefined) {
+            if (data.username !== userToUpdate.username) {
+                if (data.username) { // Only check uniqueness if username is provided
+                    const existing = await User.findOne({ username: data.username, id: { $ne: id } });
+                    if (existing) throw new Error("Nom d'utilisateur déjà pris");
+                }
+                updateFields.username = data.username || null;
             }
         }
-        if (data.full_name) updateFields.full_name = data.full_name;
+        if (data.email) {
+            if (data.email !== userToUpdate.email) {
+                const existing = await User.findOne({ email: data.email, id: { $ne: id } });
+                if (existing) throw new Error("Cet email est déjà utilisé");
+                updateFields.email = data.email;
+            }
+        }
+        if (data.first_name) updateFields.first_name = data.first_name;
+        if (data.last_name) updateFields.last_name = data.last_name;
+        if (data.first_name || data.last_name) {
+            const fn = data.first_name || userToUpdate.first_name;
+            const ln = data.last_name || userToUpdate.last_name;
+            updateFields.full_name = `${fn} ${ln}`;
+        }
         if (data.password) {
             updateFields.password_hash = await hash(data.password, 10);
         }
 
         if (Object.keys(updateFields).length > 0) {
-            await User.updateOne({ _id: userToUpdate._id }, updateFields);
+            await User.updateOne({ id: id }, updateFields);
         }
     }
 

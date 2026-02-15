@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Sale, TicketType, Salesman } from "@/lib/types";
+import { useState, useEffect } from "react";
+import { Sale, TicketType, User as UserType } from "@/lib/types";
 import {
     Table,
     TableBody,
@@ -12,50 +12,52 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import { deleteSale, toggleSalePayment } from "@/actions/sales";
+import { deleteSale } from "@/actions/sales";
+import { getPaymentForSale } from "@/actions/payments";
 import { useRouter } from "next/navigation";
-import { Edit, Trash2, Plus, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
 } from "@/components/ui/dialog";
 import { SaleForm } from "./sale-form";
-import { PaymentDialog } from "./payment-dialog";
+import { PaymentModal } from "./payment-modal";
 import { PaginationControl } from "@/components/ui/pagination-control";
+import { Badge } from "@/components/ui/badge";
+import { formatCurrency } from "@/lib/format";
+import { Edit, Trash2, Plus, CheckCircle, XCircle, Clock, Loader2, DollarSign, FileText, AlertCircle, MoreHorizontal } from "lucide-react";
+
 
 interface SalesTableProps {
     sales: Sale[];
     ticketTypes: TicketType[];
-    salesmen: Salesman[];
+    resellers: UserType[];
+    currency?: string;
+    title?: string;
+    description?: string;
 }
 
-export function SalesTable({ sales, ticketTypes, salesmen }: SalesTableProps) {
+export function SalesTable({ sales, ticketTypes, resellers, currency = 'FCFA', title, description }: SalesTableProps) {
     const router = useRouter();
     const { data: session } = useSession();
-    const canDelete = (session?.user as any)?.role === "owner";
+    const userRole = (session?.user as any)?.role as "manager" | "seller";
+    const canDelete = userRole === "manager";
 
     const [filter, setFilter] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [isNewSaleOpen, setIsNewSaleOpen] = useState(false);
     const [editingSale, setEditingSale] = useState<Sale | null>(null);
-    const [paymentSaleId, setPaymentSaleId] = useState<string | null>(null);
+    const [paymentModalSale, setPaymentModalSale] = useState<Sale | null>(null);
+    const [paymentData, setPaymentData] = useState<any>(null);
     const [loadingActions, setLoadingActions] = useState<Record<string, boolean>>({});
+    const [loadingPayments, setLoadingPayments] = useState<Record<string, boolean>>({});
 
     const filteredSales = sales.filter(
         (sale) =>
-            sale.salesman_name.toLowerCase().includes(filter.toLowerCase()) ||
+            (sale as any).seller_name.toLowerCase().includes(filter.toLowerCase()) ||
             sale.ticket_type_name.toLowerCase().includes(filter.toLowerCase())
     );
 
@@ -77,206 +79,261 @@ export function SalesTable({ sales, ticketTypes, salesmen }: SalesTableProps) {
         }
     }
 
-    async function handleTogglePayment(id: string, verse: boolean) {
-        if (verse) {
-            // Open payment dialog
-            setPaymentSaleId(id);
-        } else {
-            // Unmark as paid
-            setLoadingActions({ ...loadingActions, [`payment-${id}`]: true });
-            try {
-                await toggleSalePayment(id, false);
-                router.refresh();
-            } finally {
-                setLoadingActions({ ...loadingActions, [`payment-${id}`]: false });
-            }
+    async function handleOpenPaymentModal(sale: Sale) {
+        setLoadingPayments({ ...loadingPayments, [sale.id]: true });
+        try {
+            const payment = await getPaymentForSale(sale.id);
+            setPaymentData(payment);
+            setPaymentModalSale(sale);
+        } catch (error) {
+            console.error("Error loading payment:", error);
+        } finally {
+            setLoadingPayments({ ...loadingPayments, [sale.id]: false });
         }
     }
 
-    async function handlePaymentConfirm(invoiceNumber: string, paymentDate: string) {
-        if (!paymentSaleId) return;
-        setLoadingActions({ ...loadingActions, [`payment-${paymentSaleId}`]: true });
-        try {
-            await toggleSalePayment(paymentSaleId, true, invoiceNumber, paymentDate);
-            router.refresh();
-        } finally {
-            setLoadingActions({ ...loadingActions, [`payment-${paymentSaleId}`]: false });
+    function getStatusBadge(status: string) {
+        const tooltip = userRole === "manager"
+            ? {
+                approved: "Paiement validé. La vente est clôturée.",
+                pending: "Soumission en attente de votre revue.",
+                rejected: "Paiement rejeté. Le vendeur doit corriger.",
+                not_submitted: "Le vendeur n'a pas encore soumis de justificatif."
+            }
+            : {
+                approved: "Paiement approuvé par le manager.",
+                pending: "Reçu envoyé. En attente de validation.",
+                rejected: "Paiement rejeté. Veuillez vérifier le motif et corriger.",
+                not_submitted: "Veuillez soumettre votre reçu de paiement."
+            };
+
+        switch (status) {
+            case "approved":
+                return (
+                    <Badge variant="default" className="bg-green-600 hover:bg-green-700 cursor-pointer" title={(tooltip as any).approved}>
+                        <CheckCircle className="mr-1 h-3 w-3" />
+                        Approuvé
+                    </Badge>
+                );
+            case "pending":
+                return (
+                    <Badge variant="default" className="bg-yellow-500 hover:bg-yellow-600 cursor-pointer" title={(tooltip as any).pending}>
+                        <Clock className="mr-1 h-3 w-3" />
+                        En attente
+                    </Badge>
+                );
+            case "rejected":
+                return (
+                    <Badge variant="destructive" className="bg-red-600 hover:bg-red-700 cursor-pointer" title={(tooltip as any).rejected}>
+                        <XCircle className="mr-1 h-3 w-3" />
+                        Rejeté
+                    </Badge>
+                );
+            default:
+                return (
+                    <Badge variant="outline" className="text-muted-foreground border-dashed cursor-pointer" title={(tooltip as any).not_submitted}>
+                        <AlertCircle className="mr-1 h-3 w-3" />
+                        Non soumis
+                    </Badge>
+                );
         }
     }
 
     return (
-        <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <Input
-                    placeholder="Rechercher par vendeur ou type..."
-                    value={filter}
-                    onChange={(e) => setFilter(e.target.value)}
-                    className="max-w-sm"
-                />
-                <div className="flex items-center gap-2">
-                    <PaginationControl
-                        itemsPerPage={itemsPerPage}
-                        onItemsPerPageChange={(value) => {
-                            setItemsPerPage(value);
-                            setCurrentPage(1);
-                        }}
-                    />
-                    <Dialog open={isNewSaleOpen} onOpenChange={setIsNewSaleOpen}>
-                        <DialogTrigger asChild>
-                            <Button>
-                                <Plus className="mr-2 h-4 w-4" />
-                                Nouvelle Vente
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-[600px]">
-                            <DialogHeader>
-                                <DialogTitle>Nouvelle Vente</DialogTitle>
-                            </DialogHeader>
+        <div className="max-w-full overflow-x-hidden">
+            <div className="space-y-4">
+                <div>
+                    <div>
+                        {title && <h2 className="text-2xl md:text-3xl font-bold tracking-tight">{title}</h2>}
+                        {description && <p className="text-sm md:text-base text-muted-foreground">{description}</p>}
+                    </div>
+
+                    <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div className="w-full sm:max-w-sm">
+                            <Input
+                                placeholder="Rechercher par vendeur ou type..."
+                                value={filter}
+                                onChange={(e) => setFilter(e.target.value)}
+                                className="bg-background"
+                            />
+                        </div>
+                        <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-2 sm:pb-0">
+                            <PaginationControl
+                                itemsPerPage={itemsPerPage}
+                                onItemsPerPageChange={(value) => {
+                                    setItemsPerPage(value);
+                                    setCurrentPage(1);
+                                }}
+                            />
+                            {userRole === "manager" && (
+                                <Dialog open={isNewSaleOpen} onOpenChange={setIsNewSaleOpen}>
+                                    <Button onClick={() => setIsNewSaleOpen(true)} className="whitespace-nowrap">
+                                        <Plus className="mr-2 h-4 w-4" />
+                                        Nouvelle Vente
+                                    </Button>
+                                    <DialogContent className="sm:max-w-[600px]">
+                                        <DialogHeader>
+                                            <DialogTitle>Nouvelle Vente</DialogTitle>
+                                        </DialogHeader>
+                                        <SaleForm
+                                            ticketTypes={ticketTypes}
+                                            resellers={resellers}
+                                            onSuccess={() => {
+                                                setIsNewSaleOpen(false);
+                                                router.refresh();
+                                            }}
+                                        />
+                                    </DialogContent>
+                                </Dialog>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Desktop Title Space (already handled above but keeping structure clean) */}
+                <div className="hidden md:block">
+                </div>
+
+                <Dialog open={!!editingSale} onOpenChange={(open) => !open && setEditingSale(null)}>
+                    <DialogContent className="sm:max-w-[600px]">
+                        <DialogHeader>
+                            <DialogTitle>Modifier la Vente</DialogTitle>
+                        </DialogHeader>
+                        {editingSale && (
                             <SaleForm
                                 ticketTypes={ticketTypes}
-                                salesmen={salesmen}
+                                resellers={resellers}
+                                initialData={editingSale}
                                 onSuccess={() => {
-                                    setIsNewSaleOpen(false);
+                                    setEditingSale(null);
                                     router.refresh();
                                 }}
                             />
-                        </DialogContent>
-                    </Dialog>
-                </div>
-            </div>
+                        )}
+                    </DialogContent>
+                </Dialog>
 
-            <Dialog open={!!editingSale} onOpenChange={(open) => !open && setEditingSale(null)}>
-                <DialogContent className="sm:max-w-[600px]">
-                    <DialogHeader>
-                        <DialogTitle>Modifier la Vente</DialogTitle>
-                    </DialogHeader>
-                    {editingSale && (
-                        <SaleForm
-                            ticketTypes={ticketTypes}
-                            salesmen={salesmen}
-                            initialData={editingSale}
-                            onSuccess={() => {
-                                setEditingSale(null);
-                                router.refresh();
-                            }}
-                        />
-                    )}
-                </DialogContent>
-            </Dialog>
+                {paymentModalSale && (
+                    <PaymentModal
+                        open={!!paymentModalSale}
+                        onOpenChange={(open) => {
+                            if (!open) {
+                                setPaymentModalSale(null);
+                                setPaymentData(null);
+                            }
+                        }}
+                        sale={paymentModalSale}
+                        payment={paymentData}
+                        userRole={userRole}
+                        onSuccess={() => {
+                            router.refresh();
+                        }}
+                    />
+                )}
 
-            <PaymentDialog
-                open={!!paymentSaleId}
-                onOpenChange={(open) => !open && setPaymentSaleId(null)}
-                onConfirm={handlePaymentConfirm}
-            />
-
-            <div className="rounded-md border overflow-hidden">
-                <div className="overflow-x-auto">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Vendeur</TableHead>
-                                <TableHead>Type</TableHead>
-                                <TableHead>Quantité</TableHead>
-                                <TableHead>Date Prise</TableHead>
-                                <TableHead>Versé</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {paginatedSales.length === 0 ? (
+                <div className="rounded-md border overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <Table>
+                            <TableHeader className="sticky md:top-0 z-10 bg-background shadow-sm">
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center">
-                                        Aucune vente trouvée.
-                                    </TableCell>
+                                    <TableHead>Vendeur</TableHead>
+                                    <TableHead>Type</TableHead>
+                                    <TableHead>Quantité</TableHead>
+                                    <TableHead>Date Prise</TableHead>
+                                    <TableHead>Statut Paiement</TableHead>
+                                    {userRole === "manager" && <TableHead className="text-right">Actions</TableHead>}
                                 </TableRow>
-                            ) : (
-                                paginatedSales.map((sale) => (
-                                    <TableRow key={sale.id}>
-                                        <TableCell className="whitespace-nowrap">{sale.salesman_name}</TableCell>
-                                        <TableCell className="whitespace-nowrap">{sale.ticket_type_name}</TableCell>
-                                        <TableCell>{sale.quantity}</TableCell>
-                                        <TableCell className="whitespace-nowrap">{sale.date_de_prise}</TableCell>
-                                        <TableCell>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className={sale.verse ? "text-green-600 hover:text-green-700 hover:bg-green-50" : "text-red-600 hover:text-red-700 hover:bg-red-50"}
-                                                onClick={() => handleTogglePayment(sale.id, !sale.verse)}
-                                                disabled={loadingActions[`payment-${sale.id}`]}
-                                                title={sale.verse ? "Marquer comme non versé" : "Marquer comme versé"}
-                                            >
-                                                {loadingActions[`payment-${sale.id}`] ? (
-                                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                                ) : sale.verse ? (
-                                                    <span className="inline-flex items-center gap-1">
-                                                        <CheckCircle className="h-4 w-4" /> Oui
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center gap-1">
-                                                        <XCircle className="h-4 w-4" /> Non
-                                                    </span>
-                                                )}
-                                            </Button>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <div className="flex justify-end space-x-2">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => setEditingSale(sale)}
-                                                >
-                                                    <Edit className="h-4 w-4" />
-                                                </Button>
-                                                {canDelete && (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => handleDelete(sale.id)}
-                                                        disabled={loadingActions[`delete-${sale.id}`]}
-                                                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                                    >
-                                                        {loadingActions[`delete-${sale.id}`] ? (
-                                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                                        ) : (
-                                                            <Trash2 className="h-4 w-4" />
-                                                        )}
-                                                    </Button>
-                                                )}
-                                            </div>
+                            </TableHeader>
+                            <TableBody>
+                                {paginatedSales.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={6} className="text-center">
+                                            Aucune vente trouvée.
                                         </TableCell>
                                     </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
-            </div>
-
-            <div className="flex items-center justify-between py-4">
-                <div className="text-sm text-muted-foreground">
-                    Affichage de {paginatedSales.length} sur {filteredSales.length} vente(s)
-                </div>
-                <div className="flex items-center space-x-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                        disabled={currentPage === 1}
-                    >
-                        Précédent
-                    </Button>
-                    <div className="text-sm text-muted-foreground">
-                        Page {currentPage} sur {totalPages || 1}
+                                ) : (
+                                    paginatedSales.map((sale) => {
+                                        // We'll need to fetch payment status for each sale
+                                        // For now, we'll use a simple approach
+                                        return (
+                                            <TableRow key={sale.id}>
+                                                <TableCell className="whitespace-nowrap">{(sale as any).seller_name}</TableCell>
+                                                <TableCell className="whitespace-nowrap">{sale.ticket_type_name}</TableCell>
+                                                <TableCell>{sale.quantity}</TableCell>
+                                                <TableCell className="whitespace-nowrap">{sale.date_de_prise}</TableCell>
+                                                <TableCell>
+                                                    <div
+                                                        onClick={() => handleOpenPaymentModal(sale)}
+                                                        className="inline-block"
+                                                    >
+                                                        {loadingPayments[sale.id] ? (
+                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                        ) : getStatusBadge((sale as any).payment_status)}
+                                                    </div>
+                                                </TableCell>
+                                                {userRole === "manager" && (
+                                                    <TableCell className="text-right">
+                                                        <div className="flex justify-end space-x-1 sm:space-x-2">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => setEditingSale(sale)}
+                                                                className="h-8 w-8"
+                                                            >
+                                                                <Edit className="h-4 w-4" />
+                                                            </Button>
+                                                            {canDelete && (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    onClick={() => handleDelete(sale.id)}
+                                                                    disabled={loadingActions[`delete-${sale.id}`]}
+                                                                    className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                                >
+                                                                    {loadingActions[`delete-${sale.id}`] ? (
+                                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                                    ) : (
+                                                                        <Trash2 className="h-4 w-4" />
+                                                                    )}
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    </TableCell>
+                                                )}
+                                            </TableRow>
+                                        );
+                                    })
+                                )}
+                            </TableBody>
+                        </Table>
                     </div>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                        disabled={currentPage === totalPages || totalPages === 0}
-                    >
-                        Suivant
-                    </Button>
+                </div>
+
+                <div className="flex items-center justify-between py-4">
+                    <div className="text-sm text-muted-foreground">
+                        Affichage de {paginatedSales.length} sur {filteredSales.length} vente(s)
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                        >
+                            Précédent
+                        </Button>
+                        <div className="text-sm text-muted-foreground">
+                            Page {currentPage} sur {totalPages || 1}
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages || totalPages === 0}
+                        >
+                            Suivant
+                        </Button>
+                    </div>
                 </div>
             </div>
         </div>

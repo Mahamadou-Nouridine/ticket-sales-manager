@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Sale, TicketType, Salesman, TicketInventory } from "@/lib/types";
+import { Sale, TicketType, User as UserType, TicketInventory } from "@/lib/types";
 import {
     BarChart,
     Bar,
@@ -31,16 +31,16 @@ import { AlertTriangle } from "lucide-react";
 interface ReportsViewProps {
     sales: Sale[];
     ticketTypes: TicketType[];
-    salesmen: Salesman[];
+    resellers: UserType[];
     inventory?: TicketInventory[];
 }
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
 
-export function ReportsView({ sales, ticketTypes, salesmen, inventory }: ReportsViewProps) {
+export function ReportsView({ sales, ticketTypes, resellers, inventory }: ReportsViewProps) {
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
-    const [selectedSalesman, setSelectedSalesman] = useState("all");
+    const [selectedReseller, setSelectedReseller] = useState("all");
     const [selectedTicketType, setSelectedTicketType] = useState("all");
 
     // Filter sales based on parameters
@@ -50,46 +50,66 @@ export function ReportsView({ sales, ticketTypes, salesmen, inventory }: Reports
             if (startDate && sale.date_de_prise < startDate) return false;
             if (endDate && sale.date_de_prise > endDate) return false;
 
-            // Salesman filter
-            if (selectedSalesman !== "all" && sale.salesman_name !== selectedSalesman) return false;
+            // Reseller filter
+            if (selectedReseller !== "all" && (sale as any).seller_name !== selectedReseller) return false;
 
             // Ticket type filter
             if (selectedTicketType !== "all" && sale.ticket_type_name !== selectedTicketType) return false;
 
             return true;
         });
-    }, [sales, startDate, endDate, selectedSalesman, selectedTicketType]);
+    }, [sales, startDate, endDate, selectedReseller, selectedTicketType]);
 
-    // Calculate total revenue
-    const totalRevenue = filteredSales.reduce((sum, sale) => {
-        const ticketType = ticketTypes.find(t => t.name === sale.ticket_type_name);
-        return sum + (ticketType ? ticketType.price * sale.quantity : 0);
-    }, 0);
+    // Generate price map for efficiency
+    const priceMap = useMemo(() => new Map(ticketTypes.map(t => [t.name, t.price])), [ticketTypes]);
+
+    // Calculate detailed revenue
+    const { paidRevenue, unpaidRevenue } = useMemo(() => {
+        return filteredSales.reduce((acc, sale) => {
+            const price = priceMap.get(sale.ticket_type_name) || 0;
+            const revenue = price * sale.quantity;
+            if (sale.verse) {
+                acc.paidRevenue += revenue;
+            } else {
+                acc.unpaidRevenue += revenue;
+            }
+            return acc;
+        }, { paidRevenue: 0, unpaidRevenue: 0 });
+    }, [filteredSales, priceMap]);
+
+    const totalRevenue = paidRevenue + unpaidRevenue;
 
     // Calculate average sale value
     const averageSale = filteredSales.length > 0 ? totalRevenue / filteredSales.length : 0;
 
-    // Aggregate sales by salesman
-    const salesBySalesman = filteredSales.reduce((acc, sale) => {
-        const ticketType = ticketTypes.find(t => t.name === sale.ticket_type_name);
-        const revenue = ticketType ? ticketType.price * sale.quantity : 0;
+    const salesByReseller = filteredSales.reduce((acc, sale) => {
+        const price = priceMap.get(sale.ticket_type_name) || 0;
+        const revenue = price * sale.quantity;
+        const sellerName = (sale as any).seller_name || "Inconnu";
 
-        if (!acc[sale.salesman_name]) {
-            acc[sale.salesman_name] = { quantity: 0, revenue: 0 };
+        if (!acc[sellerName]) {
+            acc[sellerName] = { quantity: 0, paidRevenue: 0, unpaidRevenue: 0, revenue: 0 };
         }
-        acc[sale.salesman_name].quantity += sale.quantity;
-        acc[sale.salesman_name].revenue += revenue;
+        acc[sellerName].quantity += sale.quantity;
+        acc[sellerName].revenue += revenue;
+        if (sale.verse) {
+            acc[sellerName].paidRevenue += revenue;
+        } else {
+            acc[sellerName].unpaidRevenue += revenue;
+        }
         return acc;
-    }, {} as Record<string, { quantity: number; revenue: number }>);
+    }, {} as Record<string, { quantity: number; paidRevenue: number; unpaidRevenue: number; revenue: number }>);
 
-    const barData = Object.entries(salesBySalesman).map(([name, data]) => ({
+    const barData = Object.entries(salesByReseller).map(([name, data]) => ({
         name,
         quantity: data.quantity,
         revenue: data.revenue,
+        paid: data.paidRevenue,
+        unpaid: data.unpaidRevenue,
     })).sort((a, b) => b.revenue - a.revenue);
 
     // Top salesman
-    const topSalesman = barData.length > 0 ? barData[0] : null;
+    const topReseller = barData.length > 0 ? barData[0] : null;
 
     // Aggregate sales by ticket type
     const salesByType = filteredSales.reduce((acc, sale) => {
@@ -105,23 +125,27 @@ export function ReportsView({ sales, ticketTypes, salesmen, inventory }: Reports
     // Top ticket type
     const topTicketType = pieData.length > 0 ? pieData[0] : null;
 
-    // Sales evolution over time
     const salesEvolution = useMemo(() => {
         const dailySales = filteredSales.reduce((acc, sale) => {
             const date = sale.date_de_prise;
-            const ticketType = ticketTypes.find(t => t.name === sale.ticket_type_name);
-            const revenue = ticketType ? ticketType.price * sale.quantity : 0;
+            const price = priceMap.get(sale.ticket_type_name) || 0;
+            const revenue = price * sale.quantity;
 
             if (!acc[date]) {
-                acc[date] = { date, quantity: 0, revenue: 0 };
+                acc[date] = { date, quantity: 0, paid: 0, unpaid: 0, total: 0 };
             }
             acc[date].quantity += sale.quantity;
-            acc[date].revenue += revenue;
+            acc[date].total += revenue;
+            if (sale.verse) {
+                acc[date].paid += revenue;
+            } else {
+                acc[date].unpaid += revenue;
+            }
             return acc;
-        }, {} as Record<string, { date: string; quantity: number; revenue: number }>);
+        }, {} as Record<string, { date: string; quantity: number; paid: number; unpaid: number; total: number }>);
 
         return Object.values(dailySales).sort((a, b) => a.date.localeCompare(b.date));
-    }, [filteredSales, ticketTypes]);
+    }, [filteredSales, priceMap]);
 
     // Inventory data for chart
     const inventoryData = inventory?.map(item => ({
@@ -158,14 +182,16 @@ export function ReportsView({ sales, ticketTypes, salesmen, inventory }: Reports
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Vendeur</label>
-                            <Select value={selectedSalesman} onValueChange={setSelectedSalesman}>
+                            <Select value={selectedReseller} onValueChange={setSelectedReseller}>
                                 <SelectTrigger>
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Tous</SelectItem>
-                                    {salesmen.filter(s => s.active).map(s => (
-                                        <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                                    {resellers.map((r) => (
+                                        <SelectItem key={r.id} value={[r.first_name, r.last_name].filter(Boolean).join(' ') || r.full_name || r.username || r.email}>
+                                            {[r.first_name, r.last_name].filter(Boolean).join(' ') || r.full_name || r.username || r.email}
+                                        </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
@@ -190,51 +216,48 @@ export function ReportsView({ sales, ticketTypes, salesmen, inventory }: Reports
 
             {/* Key Metrics */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card>
+                <Card className="border-l-4 border-l-blue-500">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Revenu Total
+                        <CardTitle className="text-sm font-medium text-muted-foreground uppercase">
+                            Chiffre d'Affaires Total
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{totalRevenue.toFixed(0)} FCFA</div>
+                        <div className="text-2xl font-bold">{totalRevenue.toLocaleString()} FCFA</div>
                         <p className="text-xs text-muted-foreground">{filteredSales.length} vente(s)</p>
                     </CardContent>
                 </Card>
-                <Card>
+                <Card className="border-l-4 border-l-green-500">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
+                        <CardTitle className="text-sm font-medium text-muted-foreground uppercase">
+                            Revenu Validé
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-green-600">{paidRevenue.toLocaleString()} FCFA</div>
+                        <p className="text-xs text-muted-foreground">Paiements approuvés</p>
+                    </CardContent>
+                </Card>
+                <Card className="border-l-4 border-l-orange-500">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground uppercase">
+                            Reste à Encaisser
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-orange-600">{unpaidRevenue.toLocaleString()} FCFA</div>
+                        <p className="text-xs text-muted-foreground text-orange-700/70 font-medium">Dû par les vendeurs</p>
+                    </CardContent>
+                </Card>
+                <Card className="border-l-4 border-l-purple-500">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground uppercase">
                             Vente Moyenne
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{Math.round(averageSale).toFixed(0)} FCFA</div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Meilleur Vendeur
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{topSalesman?.name || "N/A"}</div>
-                        <p className="text-xs text-muted-foreground">
-                            {topSalesman ? `${topSalesman.revenue.toFixed(0)} FCFA` : ""}
-                        </p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Type le Plus Vendu
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{topTicketType?.name || "N/A"}</div>
-                        <p className="text-xs text-muted-foreground">
-                            {topTicketType ? `${topTicketType.value} tickets` : ""}
-                        </p>
+                        <div className="text-2xl font-bold">{Math.round(averageSale).toLocaleString()} FCFA</div>
+                        <p className="text-xs text-muted-foreground">Par transaction</p>
                     </CardContent>
                 </Card>
             </div>
@@ -254,8 +277,9 @@ export function ReportsView({ sales, ticketTypes, salesmen, inventory }: Reports
                                 <YAxis yAxisId="right" orientation="right" />
                                 <Tooltip />
                                 <Legend />
-                                <Line yAxisId="left" type="monotone" dataKey="revenue" stroke="#8884d8" name="Revenu (FCFA)" />
-                                <Line yAxisId="right" type="monotone" dataKey="quantity" stroke="#82ca9d" name="Quantité" />
+                                <Line yAxisId="left" type="monotone" dataKey="paid" stroke="#10b981" name="Validé (FCFA)" strokeWidth={2} />
+                                <Line yAxisId="left" type="monotone" dataKey="unpaid" stroke="#f97316" name="Dû (FCFA)" strokeWidth={2} />
+                                <Line yAxisId="right" type="monotone" dataKey="quantity" stroke="#3b82f6" name="Quantité" />
                             </LineChart>
                         </ResponsiveContainer>
                     </CardContent>
@@ -271,12 +295,13 @@ export function ReportsView({ sales, ticketTypes, salesmen, inventory }: Reports
                     <CardContent className="h-[300px]">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={barData}>
-                                <CartesianGrid strokeDasharray="3 3" />
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                 <XAxis dataKey="name" />
                                 <YAxis />
                                 <Tooltip />
                                 <Legend />
-                                <Bar dataKey="revenue" fill="#8884d8" name="Revenu (FCFA)" />
+                                <Bar dataKey="paid" stackId="a" fill="#10b981" name="Validé (FCFA)" />
+                                <Bar dataKey="unpaid" stackId="a" fill="#f97316" name="Dû (FCFA)" />
                             </BarChart>
                         </ResponsiveContainer>
                     </CardContent>

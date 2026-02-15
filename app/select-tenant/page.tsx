@@ -19,7 +19,7 @@ export default function SelectTenantPage() {
                 setTenants(data);
                 // If only one, select it (though backend auth might have done it, this handles explicit manual visit)
                 if (data.length === 1 && !(session?.user as any).tenantId) {
-                    handleSelect(data[0].id);
+                    handleSelect(data?.[0]?.id);
                 }
             } catch (error) {
                 console.error("Failed to load tenants", error);

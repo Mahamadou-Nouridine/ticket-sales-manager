@@ -3,7 +3,9 @@ import { toast } from "sonner";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSale, updateSale } from "@/actions/sales";
-import { TicketType, Salesman, Sale } from "@/lib/types";
+import { TicketType, User as UserType, Sale } from "@/lib/types";
+import { useSession } from "next-auth/react";
+import { formatCurrency } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -18,17 +20,22 @@ import { Loader2 } from "lucide-react";
 
 interface SaleFormProps {
     ticketTypes: TicketType[];
-    salesmen: Salesman[];
+    resellers: UserType[];
     initialData?: Sale;
+    currency?: string;
     onSuccess?: () => void;
 }
 
-export function SaleForm({ ticketTypes, salesmen, initialData, onSuccess }: SaleFormProps) {
+export function SaleForm({ ticketTypes, resellers, initialData, currency = 'FCFA', onSuccess }: SaleFormProps) {
     const router = useRouter();
+    const { data: session } = useSession();
+    const userRole = (session?.user as any)?.role as "manager" | "seller";
+    const currentUserId = (session?.user as any)?.id;
+
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const [salesmanName, setSalesmanName] = useState(initialData?.salesman_name || "");
+    const [sellerId, setSellerId] = useState(initialData?.seller_id || (userRole === "seller" ? currentUserId : ""));
     const [ticketTypeName, setTicketTypeName] = useState(initialData?.ticket_type_name || "");
     const [quantity, setQuantity] = useState(initialData?.quantity?.toString() || "");
     const [datePrise, setDatePrise] = useState(initialData?.date_de_prise || new Date().toISOString().split("T")[0]);
@@ -42,15 +49,14 @@ export function SaleForm({ ticketTypes, salesmen, initialData, onSuccess }: Sale
 
         try {
             const data = {
-                salesman_name: salesmanName,
+                seller_id: sellerId,
                 ticket_type_name: ticketTypeName,
                 quantity: parseInt(quantity),
                 date_de_prise: datePrise,
                 date_de_versement: dateVersement,
                 verse,
-                salesman_id: "", // Not used in sheet
                 ticket_type_id: "", // Not used in sheet
-            };
+            } as any;
 
             if (initialData) {
                 await updateSale(initialData.id, data);
@@ -79,14 +85,19 @@ export function SaleForm({ ticketTypes, salesmen, initialData, onSuccess }: Sale
         <form onSubmit={onSubmit} className="space-y-6 max-w-2xl">
             <div className="space-y-2">
                 <label className="text-sm font-medium">Vendeur</label>
-                <Select value={salesmanName} onValueChange={setSalesmanName} required>
+                <Select
+                    value={sellerId}
+                    onValueChange={setSellerId}
+                    disabled={userRole === "seller"}
+                    required
+                >
                     <SelectTrigger>
                         <SelectValue placeholder="Sélectionner un vendeur" />
                     </SelectTrigger>
                     <SelectContent>
-                        {salesmen.filter(s => s.active).map((s) => (
-                            <SelectItem key={s.id} value={s.name}>
-                                {s.name}
+                        {resellers.map((seller) => (
+                            <SelectItem key={seller.id} value={seller.id}>
+                                {[seller.first_name, seller.last_name].filter(Boolean).join(' ') || seller.full_name || seller.username || seller.email}
                             </SelectItem>
                         ))}
                     </SelectContent>
@@ -102,7 +113,7 @@ export function SaleForm({ ticketTypes, salesmen, initialData, onSuccess }: Sale
                     <SelectContent>
                         {ticketTypes.filter(t => t.active).map((t) => (
                             <SelectItem key={t.id} value={t.name}>
-                                {t.name} ({t.price} FCFA)
+                                {t.name} ({formatCurrency(t.price, currency)})
                             </SelectItem>
                         ))}
                     </SelectContent>
@@ -146,12 +157,13 @@ export function SaleForm({ ticketTypes, salesmen, initialData, onSuccess }: Sale
                     id="verse"
                     checked={verse}
                     onCheckedChange={(checked) => setVerse(checked as boolean)}
+                    disabled={userRole === "seller"}
                 />
                 <label
                     htmlFor="verse"
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                 >
-                    Versé
+                    Versé (Approuvé par manager)
                 </label>
             </div>
 
