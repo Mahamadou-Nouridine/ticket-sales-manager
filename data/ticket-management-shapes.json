@@ -1,0 +1,79 @@
+{
+  "Sales Records": {
+    "record_count": 28,
+    "column_count": 11,
+    "fields": {
+      "id": "string",
+      "nom": "string",
+      "type_de_ticket": "string",
+      "quantite": "number (integer)",
+      "date_de_prise": "string (ISO datetime)",
+      "date_de_versement": "string (ISO datetime)",
+      "verse": "boolean",
+      "invoice_number ": "string",
+      "created_by": "string",
+      "created_at": "string",
+      "updated_at": "string"
+    }
+  },
+  "Inventory": {
+    "record_count": 2,
+    "column_count": 6,
+    "fields": {
+      "id": "string",
+      "ticket_type_id": "string",
+      "ticket_type_name": "string",
+      "current_stock": "number (integer)",
+      "alert_threshold": "number (integer)",
+      "last_updated": "string"
+    }
+  },
+  "Users": {
+    "record_count": 3,
+    "column_count": 8,
+    "fields": {
+      "id": "string",
+      "username": "string",
+      "password_hash": "string",
+      "role": "string",
+      "full_name": "string",
+      "active": "boolean",
+      "created_at": "string",
+      "last_login": "null"
+    }
+  },
+  "Ticket Types": {
+    "record_count": 4,
+    "column_count": 5,
+    "fields": {
+      "id": "string",
+      "name": "string",
+      "price": "number (integer)",
+      "active": "boolean",
+      "created_at": "string"
+    }
+  },
+  "Salesmen": {
+    "record_count": 3,
+    "column_count": 4,
+    "fields": {
+      "id": "string",
+      "name": "string",
+      "active": "boolean",
+      "created_at": "string"
+    }
+  },
+  "Audit Logs": {
+    "record_count": 101,
+    "column_count": 7,
+    "fields": {
+      "id": "string",
+      "user_id": "string",
+      "action": "string",
+      "entity_type": "string",
+      "entity_id": "string",
+      "details": "string",
+      "timestamp": "string"
+    }
+  }
+}
