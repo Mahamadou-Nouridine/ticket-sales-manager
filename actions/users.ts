@@ -102,6 +102,22 @@ export async function createUser(data: {
 
     let user = await User.findOne(query);
 
+    // If user exists, throw special error for invitation flow
+    if (user) {
+        // Check if already a member
+        const existingMembership = await Membership.findOne({
+            userId: user.id,
+            tenantId
+        });
+
+        if (existingMembership) {
+            throw new Error("USER_ALREADY_MEMBER");
+        }
+
+        // User exists but not a member - trigger invitation flow
+        throw new Error("USER_EXISTS");
+    }
+
     if (!user) {
         if (!data.password) throw new Error("Un mot de passe est requis pour les nouveaux utilisateurs");
 

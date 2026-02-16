@@ -33,6 +33,20 @@ export interface Membership {
     created_at: string;
 }
 
+export interface Invitation {
+    id: string;
+    tenantId: string;
+    invitedUserId: string;
+    invitedBy: string;
+    role: 'manager' | 'seller';
+    status: 'pending' | 'accepted' | 'declined';
+    created_at: string;
+    responded_at?: string;
+    // Populated fields
+    tenantName?: string;
+    inviterName?: string;
+}
+
 export interface TicketType {
     id: string;
     tenantId: string;

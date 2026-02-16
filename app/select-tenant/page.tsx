@@ -11,6 +11,11 @@ export default function SelectTenantPage() {
     const { data: session, update } = useSession();
     const router = useRouter();
 
+    const roleMap = {
+        "seller": "Vendeur",
+        "manager": "Manager",
+    }
+
     useEffect(() => {
         async function loadTenants() {
             try {
@@ -67,7 +72,7 @@ export default function SelectTenantPage() {
                         >
                             <div>
                                 <div className="font-medium text-gray-900 group-hover:text-blue-600">{tenant.name}</div>
-                                <div className="text-xs text-gray-500 capitalize">{tenant.role}</div>
+                                <div className="text-xs text-gray-500 capitalize">{roleMap[tenant.role as keyof typeof roleMap] || tenant.role}</div>
                             </div>
                             <span className="text-gray-400 group-hover:text-blue-500">→</span>
                         </button>

@@ -47,6 +47,18 @@ membershipSchema.virtual('user', {
 membershipSchema.set('toObject', { virtuals: true });
 membershipSchema.set('toJSON', { virtuals: true });
 
+// --- Invitation Schema ---
+const invitationSchema = new Schema({
+    id: { type: String, required: true, unique: true },
+    tenantId: { type: String, required: true, index: true },
+    invitedUserId: { type: String, required: true, index: true },
+    invitedBy: { type: String, required: true }, // Manager user ID
+    role: { type: String, enum: ['manager', 'seller'], required: true },
+    status: { type: String, enum: ['pending', 'accepted', 'declined'], default: 'pending' },
+    created_at: { type: String, required: true },
+    responded_at: { type: String },
+});
+
 // --- Ticket Type Schema ---
 const ticketTypeSchema = new Schema({
     id: { type: String, required: true, unique: true },
@@ -119,6 +131,7 @@ if (process.env.NODE_ENV === 'development') {
     delete models.User;
     delete models.Tenant;
     delete models.Membership;
+    delete models.Invitation;
     delete models.TicketType;
     delete models.Sale;
     delete models.SalePayment;
@@ -129,6 +142,7 @@ if (process.env.NODE_ENV === 'development') {
 export const User = models.User || model('User', userSchema);
 export const Tenant = models.Tenant || model('Tenant', tenantSchema);
 export const Membership = models.Membership || model('Membership', membershipSchema);
+export const Invitation = models.Invitation || model('Invitation', invitationSchema);
 export const TicketType = models.TicketType || model('TicketType', ticketTypeSchema);
 export const Sale = models.Sale || model('Sale', saleSchema);
 export const SalePayment = models.SalePayment || model('SalePayment', salePaymentSchema);
