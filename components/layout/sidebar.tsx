@@ -17,8 +17,9 @@ import {
 import { signOut } from "next-auth/react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { OrgSwitcher } from "./org-switcher";
+import { getPendingInvitationsCount } from "@/actions/invitation_counts";
 
 interface SidebarContentProps extends React.HTMLAttributes<HTMLDivElement> {
     onNavigate?: () => void;
@@ -32,10 +33,39 @@ function SidebarContent({ className, onNavigate, slug, tenantName, organizations
     const role = (session?.user as any)?.role;
     const isManager = role === "manager";
 
+    const [pendingInvitesDetails, setPendingInvitesDetails] = useState<number>(0);
+
+    // This effect should fetch the pending count. 
+    // Since this is a client component, we need to call a server action or API.
+    // Creating action in 'actions/invitation_counts.ts' was step 1.
+    // Now I need to import it.
+    // Wait, importing server action in client component works in Next.js.
+
+    // However, SidebarContent is a functional component.
+    // I need to use useEffect to fetch the count or pass it as a prop from server component wrapper.
+    // The wrapper `Sidebar` is a client component too? "use client" is at top of file.
+
+    // Let's modify the `Sidebar` wrapper (which is imported in layout) to be a Server Component?
+    // No, `Sidebar` exports `SidebarContent` which uses hooks (usePathname).
+    // The file has "use client".
+    // So entire file is client.
+
+    // I can fetch data in useEffect.
+
+    useEffect(() => {
+        if (!slug) return;
+        getPendingInvitationsCount(slug).then(setPendingInvitesDetails).catch(console.error);
+    }, [slug]);
+
     const navigation = [
         { name: "Tableau de bord", href: `/t/${slug}/dashboard`, icon: LayoutDashboard },
         { name: "Ventes", href: `/t/${slug}/sales`, icon: Ticket },
-        { name: "Invitations", href: `/t/${slug}/invitations`, icon: Mail },
+        {
+            name: "Invitations",
+            href: `/t/${slug}/invitations`,
+            icon: Mail,
+            badge: pendingInvitesDetails > 0 ? pendingInvitesDetails : undefined
+        },
         ...(isManager
             ? [
                 { name: "Inventaire", href: `/t/${slug}/inventory`, icon: Warehouse },
@@ -48,7 +78,6 @@ function SidebarContent({ className, onNavigate, slug, tenantName, organizations
         ...(isManager ? [{ name: "Types de Tickets", href: `/t/${slug}/config/ticket-types` }] : []),
         ...(isManager ? [{ name: "Vendeurs", href: `/t/${slug}/config/salesmen` }] : []),
         ...(isManager ? [{ name: "Utilisateurs", href: `/t/${slug}/config/users` }] : []),
-        ...(isManager ? [{ name: "Paramètres", href: `/t/${slug}/config/settings` }] : []),
         ...(isManager ? [{ name: "Logs d'Activité", href: `/t/${slug}/admin/logs` }] : []),
     ];
 
@@ -88,6 +117,11 @@ function SidebarContent({ className, onNavigate, slug, tenantName, organizations
                                     )}
                                 />
                                 {item.name}
+                                {(item as any).badge && (
+                                    <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white">
+                                        {(item as any).badge}
+                                    </span>
+                                )}
                             </Link>
                         );
                     })}

@@ -30,13 +30,14 @@ export function LoginForm() {
 
             if (result?.error) {
                 setError("Email ou mot de passe incorrect");
+                setIsLoading(false);
             } else {
+                // Keep loading state true while redirecting
                 router.push("/dashboard");
                 router.refresh();
             }
         } catch (error) {
             setError("Une erreur est survenue");
-        } finally {
             setIsLoading(false);
         }
     }

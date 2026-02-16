@@ -57,16 +57,25 @@ export function OrgSwitcher({ organizations, currentSlug, currentName }: OrgSwit
             // Update session with new tenant
             await update({ tenantId: org.id });
 
-            // Navigate to new tenant dashboard
-            router.push(`/t/${org.slug}/dashboard`);
+            // Smart Redirect: Preserve path if possible
+            const currentPath = window.location.pathname;
+            const newPath = currentPath.replace(`/t/${currentSlug}`, `/t/${org.slug}`);
+
+            // Check if user has permission for new path if it's admin/config
+            const newRole = org.role;
+            const isAdminPath = newPath.includes('/admin') || newPath.includes('/config') || newPath.includes('/inventory') || newPath.includes('/reports');
+
+            if (isAdminPath && newRole !== 'manager') {
+                router.push(`/t/${org.slug}/dashboard`);
+            } else {
+                router.push(newPath);
+            }
             router.refresh();
         } catch (error) {
             console.error("Failed to switch organization:", error);
-        } finally {
             setSwitching(false);
         }
     };
-
 
     return (
         <div className="px-3 py-2">
@@ -74,13 +83,13 @@ export function OrgSwitcher({ organizations, currentSlug, currentName }: OrgSwit
                 <DropdownMenuTrigger asChild>
                     <Button
                         variant="ghost"
-                        className="w-full justify-between gap-3 px-3 py-6 bg-gray-800/50 border border-gray-700 hover:bg-gray-800 hover:border-gray-600 group transition-all"
+                        className="w-full justify-between gap-3 px-3 py-6 bg-gray-800/50 border border-gray-700 hover:bg-gray-800 hover:border-gray-600 group transition-all relative"
                     >
                         <div className="flex items-center gap-3 overflow-hidden">
                             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white shadow-lg shadow-blue-900/40 shrink-0">
                                 <Building2 className="h-5 w-5" />
                             </div>
-                            <div className="flex flex-col items-start overflow-hidden">
+                            <div className="flex flex-col items-start overflow-hidden text-left">
                                 <span className="font-semibold text-white truncate text-sm">
                                     {currentName}
                                 </span>
@@ -90,9 +99,14 @@ export function OrgSwitcher({ organizations, currentSlug, currentName }: OrgSwit
                             </div>
                         </div>
                         <ChevronsUpDown className="h-4 w-4 text-gray-500 group-hover:text-gray-400" />
+                        {switching && (
+                            <div className="absolute inset-0 bg-gray-900/50 flex items-center justify-center rounded-md backdrop-blur-sm">
+                                <Loader2 className="h-5 w-5 animate-spin text-white" />
+                            </div>
+                        )}
                     </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56 bg-gray-800 border-gray-700 text-white" align="start">
+                <DropdownMenuContent className="w-64 bg-gray-800 border-gray-700 text-white" align="start">
                     <DropdownMenuLabel className="text-xs text-gray-400 font-bold uppercase tracking-wider p-2">
                         Vos organisations
                     </DropdownMenuLabel>

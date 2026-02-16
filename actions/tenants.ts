@@ -61,6 +61,14 @@ export async function createOrganization(data: { name: string; slug: string }) {
     const dbSession = await mongoose.startSession();
     dbSession.startTransaction();
 
+    // Check Organization Limit
+    const ownedOrgsCount = await Tenant.countDocuments({ ownerId: userId });
+    const limit = parseInt(process.env.MAX_ORGANIZATIONS_LIMIT || '3');
+
+    if (ownedOrgsCount >= limit) {
+        throw new Error(`Vous avez atteint la limite de ${limit} organisations. Une offre premium sera bientôt disponible pour en créer davantage.`);
+    }
+
     try {
         // 1. Create Tenant
         const [tenant] = await Tenant.create([{
