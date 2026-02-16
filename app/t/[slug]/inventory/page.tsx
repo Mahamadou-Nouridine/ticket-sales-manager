@@ -4,6 +4,12 @@ import { redirect } from "next/navigation";
 import { getInventory } from "@/actions/inventory";
 import { getTicketTypes } from "@/actions/config";
 import { InventoryTable } from "@/components/inventory/inventory-table";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+    title: "Inventaire",
+    description: "Gérez votre stock de tickets",
+};
 
 export default async function InventoryPage() {
     const session = await getServerSession(authOptions);

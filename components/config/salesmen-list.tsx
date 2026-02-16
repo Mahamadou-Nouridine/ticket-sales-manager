@@ -28,8 +28,9 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 import { createUser, toggleUserStatus, updateUser } from "@/actions/users";
+import { sendInvitation } from "@/actions/invitations";
 import { useRouter, useParams } from "next/navigation";
-import { Plus, Power, PowerOff, Edit, Loader2, MoreHorizontal, Wand2 } from "lucide-react";
+import { Plus, Power, PowerOff, Edit, Loader2, MoreHorizontal, Wand2, Mail } from "lucide-react";
 
 
 interface SalesmenListProps {
@@ -51,6 +52,10 @@ export function SalesmenList({ salesmen, title, description }: SalesmenListProps
     const [password, setPassword] = useState("");
     const [phone, setPhone] = useState("");
     const [itemsPerPage, setItemsPerPage] = useState(10);
+
+    // Invitation state
+    const [showInviteConfirm, setShowInviteConfirm] = useState(false);
+    const [existingUserEmail, setExistingUserEmail] = useState("");
     const [loadingActions, setLoadingActions] = useState<Record<string, boolean>>({});
 
     // Edit state
@@ -75,19 +80,49 @@ export function SalesmenList({ salesmen, title, description }: SalesmenListProps
                 role: 'seller'
             });
             setIsOpen(false);
-            setEmail("");
-            setUsername("");
-            setFirstName("");
-            setLastName("");
-            setPassword("");
-            setPhone("");
+            resetForm();
             router.refresh();
             toast.success("Vendeur créé avec succès");
         } catch (error: any) {
-            toast.error(error.message || "Erreur lors de la création");
+            if (error.message === "USER_EXISTS") {
+                // User exists - show invitation option
+                setExistingUserEmail(email);
+                setShowInviteConfirm(true);
+            } else if (error.message === "USER_ALREADY_MEMBER") {
+                toast.error("Cet utilisateur est déjà membre de cette organisation");
+            } else {
+                toast.error(error.message || "Erreur lors de la création");
+            }
         } finally {
             setIsLoading(false);
         }
+    }
+
+    async function handleSendInvitation() {
+        setIsLoading(true);
+        try {
+            await sendInvitation({ email: existingUserEmail, role: 'seller' });
+            toast.success("Invitation envoyée avec succès");
+            setIsOpen(false);
+            setShowInviteConfirm(false);
+            resetForm();
+            router.refresh();
+        } catch (error: any) {
+            toast.error(error.message || "Erreur lors de l'envoi de l'invitation");
+        } finally {
+            setIsLoading(false);
+        }
+    }
+
+    function resetForm() {
+        setEmail("");
+        setUsername("");
+        setFirstName("");
+        setLastName("");
+        setPassword("");
+        setPhone("");
+        setShowInviteConfirm(false);
+        setExistingUserEmail("");
     }
 
     const suggestUsername = (first: string, last: string) => {
@@ -178,7 +213,7 @@ export function SalesmenList({ salesmen, title, description }: SalesmenListProps
                                     <span className="sm:hidden">Nouveau</span>
                                 </Button>
                             </DialogTrigger>
-                            <DialogContent>
+                            <DialogContent className="max-h-[90vh] overflow-y-auto">
                                 <DialogHeader>
                                     <DialogTitle>Ajouter un Vendeur</DialogTitle>
                                 </DialogHeader>
@@ -245,7 +280,47 @@ export function SalesmenList({ salesmen, title, description }: SalesmenListProps
                                             required
                                         />
                                     </div>
-                                    <Button type="submit" className="w-full" disabled={isLoading}>
+
+                                    {showInviteConfirm && (
+                                        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 space-y-3">
+                                            <div className="flex items-start gap-3">
+                                                <Mail className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
+                                                <div className="flex-1">
+                                                    <h4 className="font-semibold text-blue-900">
+                                                        Utilisateur existant
+                                                    </h4>
+                                                    <p className="text-sm text-blue-700 mt-1">
+                                                        L'utilisateur <strong>{existingUserEmail}</strong> existe déjà.
+                                                        Voulez-vous lui envoyer une invitation à rejoindre votre organisation
+                                                        en tant que <strong>Vendeur</strong> ?
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <Button
+                                                    type="button"
+                                                    onClick={handleSendInvitation}
+                                                    disabled={isLoading}
+                                                    className="flex-1"
+                                                >
+                                                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                                    Envoyer l'invitation
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    onClick={() => {
+                                                        setShowInviteConfirm(false);
+                                                        setExistingUserEmail("");
+                                                    }}
+                                                >
+                                                    Annuler
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <Button type="submit" className="w-full" disabled={isLoading || showInviteConfirm}>
                                         {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                         Créer
                                     </Button>

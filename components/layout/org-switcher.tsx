@@ -10,11 +10,21 @@ import {
     DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { ChevronsUpDown, Plus, Building2, Check } from "lucide-react";
+import { ChevronsUpDown, Plus, Building2, Check, Settings, Shield, LogOut, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { CreateOrgDialog } from "./create-org-dialog";
 import { useSession } from "next-auth/react";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { leaveOrganization } from "@/actions/tenants";
+import { toast } from "sonner";
 
 interface Organization {
     id: string;
@@ -33,8 +43,11 @@ export function OrgSwitcher({ organizations, currentSlug, currentName }: OrgSwit
     const router = useRouter();
     const [isOpen, setIsOpen] = useState(false);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
-    const { update } = useSession();
+    const [isLeaveOpen, setIsLeaveOpen] = useState(false);
+    const { data: session, update } = useSession();
     const [switching, setSwitching] = useState(false);
+
+    const isManager = (session?.user as any)?.role === 'manager';
 
     const handleSwitch = async (org: Organization) => {
         if (org.slug === currentSlug) return;
@@ -112,6 +125,25 @@ export function OrgSwitcher({ organizations, currentSlug, currentName }: OrgSwit
                         </div>
                     )}
                     <DropdownMenuSeparator className="bg-gray-700" />
+                    {isManager && (
+                        <DropdownMenuItem
+                            onClick={() => router.push(`/t/${currentSlug}/admin/manage`)}
+                            className="flex items-center gap-2 p-2 cursor-pointer focus:bg-gray-700 focus:text-white"
+                        >
+                            <Shield className="h-4 w-4" />
+                            <span>Gérer l'organisation</span>
+                        </DropdownMenuItem>
+                    )}
+                    {!isManager && (
+                        <DropdownMenuItem
+                            onClick={() => setIsLeaveOpen(true)}
+                            className="flex items-center gap-2 p-2 cursor-pointer focus:bg-red-900/30 focus:text-red-400 text-red-400"
+                        >
+                            <LogOut className="h-4 w-4" />
+                            <span>Quitter l'organisation</span>
+                        </DropdownMenuItem>
+                    )}
+                    <DropdownMenuSeparator className="bg-gray-700" />
                     <DropdownMenuItem
                         onClick={() => setIsCreateOpen(true)}
                         className="flex items-center gap-2 p-2 cursor-pointer focus:bg-blue-600 focus:text-white text-blue-400 font-medium"
@@ -123,6 +155,61 @@ export function OrgSwitcher({ organizations, currentSlug, currentName }: OrgSwit
             </DropdownMenu>
 
             <CreateOrgDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
+            <LeaveOrgDialog
+                open={isLeaveOpen}
+                onOpenChange={setIsLeaveOpen}
+                tenantId={organizations.find(o => o.slug === currentSlug)?.id || ""}
+                tenantName={currentName}
+            />
         </div>
+    );
+}
+
+function LeaveOrgDialog({ open, onOpenChange, tenantId, tenantName }: { open: boolean, onOpenChange: (open: boolean) => void, tenantId: string, tenantName: string }) {
+    const [leaving, setLeaving] = useState(false);
+    const router = useRouter();
+    const { update } = useSession();
+
+    async function handleLeave() {
+        setLeaving(true);
+        try {
+            await leaveOrganization(tenantId);
+            toast.success("Vous avez quitté l'organisation");
+            await update({ tenantId: null });
+            router.push("/select-tenant");
+            router.refresh();
+        } catch (error: any) {
+            toast.error(error.message || "Erreur lors de la tentative de quitter");
+            setLeaving(false);
+        }
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="border-red-200">
+                <DialogHeader>
+                    <DialogTitle className="text-red-600">Quitter l'organisation ?</DialogTitle>
+                    <DialogDescription>
+                        Êtes-vous sûr de vouloir quitter l'organisation <strong>{tenantName}</strong> ?
+                        <br /><br />
+                        Vos ventes passées seront conservées dans l'historique de l'organisation,
+                        mais vous n'y aurez plus accès.
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)} disabled={leaving}>
+                        Annuler
+                    </Button>
+                    <Button
+                        variant="destructive"
+                        onClick={handleLeave}
+                        disabled={leaving}
+                    >
+                        {leaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Oui, quitter
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }

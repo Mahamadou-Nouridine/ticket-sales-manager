@@ -3,6 +3,12 @@ import { getTicketTypes } from "@/actions/config";
 import { getSellers } from "@/actions/sellers";
 import { getTenantSettings } from "@/actions/tenant_settings";
 import { SalesTable } from "@/components/sales/sales-table";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+    title: "Ventes",
+    description: "Gérez et suivez toutes vos ventes de tickets",
+};
 
 export default async function SalesPage() {
     const sales = await getSales();

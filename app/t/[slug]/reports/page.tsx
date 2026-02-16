@@ -6,6 +6,12 @@ import { ReportsView } from "@/components/reports/reports-view";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+    title: "Rapports",
+    description: "Analyses détaillées et rapports de ventes",
+};
 
 export default async function ReportsPage() {
     const session = await getServerSession(authOptions);

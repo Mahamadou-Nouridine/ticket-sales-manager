@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { getMyTenants } from "@/actions/users";
+import { Button } from "@/components/ui/button";
+import { Building2, Plus } from "lucide-react";
+import { CreateOrgDialog } from "@/components/layout/create-org-dialog";
 
 export default function SelectTenantPage() {
     const [tenants, setTenants] = useState<any[]>([]);
@@ -79,8 +82,24 @@ export default function SelectTenantPage() {
                     ))}
 
                     {tenants.length === 0 && (
-                        <div className="p-4 text-center text-red-500 bg-red-50 rounded">
-                            Aucune adhésion active trouvée.
+                        <div className="p-6 text-center bg-gray-50 rounded-lg border-2 border-dashed">
+                            <Building2 className="mx-auto h-12 w-12 text-gray-400" />
+                            <h3 className="mt-2 text-sm font-semibold text-gray-900">
+                                Aucune organisation
+                            </h3>
+                            <p className="mt-1 text-sm text-gray-500">
+                                Vous n'êtes membre d'aucune organisation. Créez-en une pour commencer.
+                            </p>
+                            <div className="mt-6">
+                                <CreateOrgDialog
+                                    trigger={
+                                        <Button>
+                                            <Plus className="mr-2 h-4 w-4" />
+                                            Créer une organisation
+                                        </Button>
+                                    }
+                                />
+                            </div>
                         </div>
                     )}
                 </div>

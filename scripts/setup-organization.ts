@@ -91,9 +91,11 @@ async function main() {
 
         try {
             // Create Tenant
+            const userId = uuidv4();
             const tenantId = uuidv4();
             const tenant = await Tenant.create([{
                 id: tenantId,
+                ownerId: userId,
                 name: orgName,
                 slug: orgSlug,
                 plan: 'enterprise',
@@ -102,7 +104,6 @@ async function main() {
             }], { session });
 
             // Create User
-            const userId = uuidv4();
             const hashedPassword = await hash(password, 10);
 
             const nameParts = fullName.split(' ');

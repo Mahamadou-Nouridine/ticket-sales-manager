@@ -70,7 +70,8 @@ export async function createOrganization(data: { name: string; slug: string }) {
             created_at: now,
             active: true,
             plan: 'free',
-            currency: 'FCFA'
+            currency: 'FCFA',
+            ownerId: userId
         }], { session: dbSession });
 
         // 2. Create Membership for the creator as Manager
@@ -106,4 +107,246 @@ export async function createOrganization(data: { name: string; slug: string }) {
     } finally {
         dbSession.endSession();
     }
+}
+
+export async function updateOrganization(tenantId: string, data: { name: string; slug: string; currency?: string }) {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) throw new Error("Non authentifié");
+
+    // START TRANSACTION
+    await connectToDatabase();
+    const dbSession = await mongoose.startSession();
+    dbSession.startTransaction();
+
+    try {
+        // Check permissions
+        const membership = await Membership.findOne({
+            userId: (session.user as any).id,
+            tenantId,
+            role: 'manager',
+            active: true
+        });
+
+        if (!membership) throw new Error("Non autorisé");
+
+        // Check availability of slug if changed
+        const existing = await Tenant.findOne({ slug: data.slug.toLowerCase(), id: { $ne: tenantId } });
+        if (existing) throw new Error("Cette URL est déjà utilisée");
+
+        await Tenant.updateOne({ id: tenantId }, {
+            name: data.name,
+            slug: data.slug.toLowerCase(),
+            currency: data.currency
+        }, { session: dbSession });
+
+        await AuditLog.create([{
+            id: uuidv4(),
+            tenantId,
+            user_id: (session.user as any).id,
+            action: "UPDATE",
+            entity_type: "TENANT",
+            entity_id: tenantId,
+            details: `Updated organization to ${data.name} (${data.slug}) [Currency: ${data.currency}]`,
+            timestamp: new Date().toISOString(),
+        }], { session: dbSession });
+
+        await dbSession.commitTransaction();
+        revalidatePath(`/t/${data.slug}`);
+        return { success: true };
+    } catch (error: any) {
+        await dbSession.abortTransaction();
+        throw new Error(error.message);
+    } finally {
+        dbSession.endSession();
+    }
+}
+
+// ... deleteOrganization ...
+
+export async function getTenantDetails(tenantId: string) {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) throw new Error("Non authentifié");
+
+    await connectToDatabase();
+
+    // Check membership
+    const membership = await Membership.findOne({
+        userId: (session.user as any).id,
+        tenantId,
+        active: true
+    });
+
+    if (!membership) throw new Error("Non autorisé");
+
+    const tenant = await Tenant.findOne({ id: tenantId }).lean();
+    if (!tenant) throw new Error("Organisation introuvable");
+
+    return {
+        id: tenant.id,
+        name: tenant.name,
+        slug: tenant.slug,
+        currency: tenant.currency || 'FCFA',
+        role: membership.role,
+        isOwner: tenant.ownerId === (session.user as any).id
+    };
+}
+
+export async function deleteOrganization(tenantId: string) {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) throw new Error("Non authentifié");
+
+    await connectToDatabase();
+    const dbSession = await mongoose.startSession();
+    dbSession.startTransaction();
+
+    try {
+        // Check manager permissions
+        const membership = await Membership.findOne({
+            userId: (session.user as any).id,
+            tenantId,
+            role: 'manager',
+            active: true
+        });
+
+        if (!membership) throw new Error("Seul un manager peut supprimer l'organisation");
+
+        // Check Owner Permission
+        const tenant = await Tenant.findOne({ id: tenantId }).session(dbSession);
+        if (tenant.ownerId && tenant.ownerId !== (session.user as any).id) {
+            throw new Error("Seul le propriétaire de l'organisation peut la supprimer");
+        }
+
+        // Import all models to ensure they are registered
+        const { Sale, TicketInventory, TicketType, SalePayment } = await import("@/lib/models");
+
+        // Cascade Delete
+        // 1. Delete Memberships
+        await Membership.deleteMany({ tenantId }, { session: dbSession });
+
+        // 2. Delete Inventory
+        await TicketInventory.deleteMany({ tenantId }, { session: dbSession });
+
+        // 3. Delete Ticket Types
+        await TicketType.deleteMany({ tenantId }, { session: dbSession });
+
+        // 4. Delete Payments (related to sales)
+        const sales = await Sale.find({ tenantId }).session(dbSession);
+        const saleIds = sales.map((s: any) => s.id);
+        await SalePayment.deleteMany({ saleId: { $in: saleIds } }, { session: dbSession });
+
+        // 5. Delete Sales
+        await Sale.deleteMany({ tenantId }, { session: dbSession });
+
+        // 6. Delete Audit Logs
+        await AuditLog.deleteMany({ tenantId }, { session: dbSession });
+
+        // 7. Delete Tenant
+        await Tenant.deleteOne({ id: tenantId }, { session: dbSession });
+
+        await dbSession.commitTransaction();
+        return { success: true };
+    } catch (error: any) {
+        await dbSession.abortTransaction();
+        console.error("Delete org error:", error);
+        throw new Error(error.message || "Erreur lors de la suppression");
+    } finally {
+        dbSession.endSession();
+    }
+}
+
+export async function getOrganizationStats(tenantId: string) {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) throw new Error("Non authentifié");
+
+    await connectToDatabase();
+    const { Sale, TicketType } = await import("@/lib/models");
+
+    const [membersCount, salesCount, ticketTypesCount, revenueData] = await Promise.all([
+        Membership.countDocuments({ tenantId, active: true }),
+        Sale.countDocuments({ tenantId }),
+        TicketType.countDocuments({ tenantId }),
+        Sale.aggregate([
+            { $match: { tenantId, status: 'completed' } },
+            { $group: { _id: null, total: { $sum: "$total_amount" } } }
+        ])
+    ]);
+
+    return {
+        members: membersCount,
+        sales: salesCount,
+        ticketTypes: ticketTypesCount,
+        revenue: revenueData[0]?.total || 0,
+    };
+}
+
+// export async function getTenantDetails(tenantId: string) {
+//     const session = await getServerSession(authOptions);
+//     if (!session || !session.user) throw new Error("Non authentifié");
+
+//     await connectToDatabase();
+
+//     // Check membership
+//     const membership = await Membership.findOne({
+//         userId: (session.user as any).id,
+//         tenantId,
+//         active: true
+//     });
+
+//     if (!membership) throw new Error("Non autorisé");
+
+//     const tenant = await Tenant.findOne({ id: tenantId }).lean();
+//     if (!tenant) throw new Error("Organisation introuvable");
+
+//     return {
+//         id: tenant.id,
+//         name: tenant.name,
+//         slug: tenant.slug,
+//         role: membership.role
+//     };
+// }
+
+export async function leaveOrganization(tenantId: string) {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) throw new Error("Non authentifié");
+
+    await connectToDatabase();
+    const userId = (session.user as any).id;
+
+    // Check membership
+    const membership = await Membership.findOne({
+        userId,
+        tenantId,
+        active: true
+    });
+
+    if (!membership) throw new Error("Vous n'êtes pas membre de cette organisation");
+
+    if (membership.role === 'manager') {
+        throw new Error("Les managers ne peuvent pas quitter l'organisation. Veuillez contacter le propriétaire.");
+    }
+
+    // Deactivate membership (leaving sales history intact)
+    // We could delete it, but soft delete (active: false) preserves history better if we join again?
+    // User asked to "leave without deleting his sales". Deleting the membership record doesn't delete sales (unless we cascade).
+    // Our deleteOrganization cascades, but leaving shouldn't.
+    // So distinct from deleteOrganization.
+
+    // Let's perform a DELETE on the membership, as "active" flag might be sufficient but removing the record is cleaner if we don't want them showing up in lists.
+    // However, if we delete the membership, we lose the link to the user for historical sales display if we rely on membership for something?
+    // Sales are linked to userId. So deleting membership is fine.
+
+    await Membership.deleteOne({ id: membership.id });
+
+    await AuditLog.create({
+        id: uuidv4(),
+        tenantId,
+        user_id: userId,
+        action: "LEAVE",
+        entity_type: "ORGANIZATION",
+        entity_id: tenantId,
+        details: `User left the organization`,
+        timestamp: new Date().toISOString(),
+    });
+
+    return { success: true };
 }

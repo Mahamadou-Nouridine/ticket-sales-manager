@@ -7,6 +7,12 @@ import { ActivityCard } from "@/components/dashboard/activity-card";
 import { SalesChart } from "@/components/dashboard/sales-chart";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+    title: "Tableau de bord",
+    description: "Vue d'ensemble de vos ventes et performances",
+};
 
 export default async function DashboardPage() {
     const session = await getServerSession(authOptions);

@@ -1,49 +1,50 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { createOrganization } from "@/actions/tenants";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { useSession } from "next-auth/react";
 
-interface CreateOrgDialogProps {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-}
+export function CreateOrgDialog({ trigger, open: controlledOpen, onOpenChange }: { trigger?: React.ReactNode, open?: boolean, onOpenChange?: (open: boolean) => void }) {
+    const [internalOpen, setInternalOpen] = useState(false);
+    const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+    const setOpen = onOpenChange || setInternalOpen;
 
-export function CreateOrgDialog({ open, onOpenChange }: CreateOrgDialogProps) {
-    const router = useRouter();
-    const [isLoading, setIsLoading] = useState(false);
     const [name, setName] = useState("");
     const [slug, setSlug] = useState("");
-    const { update } = useSession();
+    const [isLoading, setIsLoading] = useState(false);
+    const router = useRouter();
+    const { update: updateSession } = useSession();
 
-    // Auto-generate slug from name
-    useEffect(() => {
-        if (name) {
-            setSlug(name.toLowerCase().replace(/[^a-z0-0]/g, '-').replace(/-+/g, '-'));
-        }
-    }, [name]);
+    const generateSlug = (orgName: string) => {
+        return orgName
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "");
+    };
 
-    async function onSubmit(e: React.FormEvent) {
+    const onSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
-
         try {
             const result = await createOrganization({ name, slug });
+
+            // Update session with new tenant
+            await updateSession({ tenantId: result.tenantId });
+
             toast.success("Organisation créée !");
-            await update({ tenantId: result.tenantId });
-            onOpenChange(false);
+            setOpen(false);
             // Redirect to the new organization's dashboard
             router.push(`/t/${result.slug}/dashboard`);
             router.refresh();
@@ -52,44 +53,43 @@ export function CreateOrgDialog({ open, onOpenChange }: CreateOrgDialogProps) {
         } finally {
             setIsLoading(false);
         }
-    }
+    };
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog open={open} onOpenChange={setOpen}>
+            {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Créer une nouvelle organisation</DialogTitle>
+                    <DialogTitle>Créer une Organisation</DialogTitle>
                 </DialogHeader>
-                <form onSubmit={onSubmit} className="space-y-4 pt-4">
+                <form onSubmit={onSubmit} className="space-y-4">
                     <div className="space-y-2">
-                        <Label htmlFor="name">Nom de l&apos;organisation</Label>
+                        <label className="text-sm font-medium">Nom de l&apos;organisation</label>
                         <Input
-                            id="name"
                             value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="Ex: Ma Super Boutique"
+                            onChange={(e) => {
+                                setName(e.target.value);
+                                setSlug(generateSlug(e.target.value));
+                            }}
+                            placeholder="Ex: Mon Entreprise"
                             required
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="slug">URL de l&apos;organisation (Slug)</Label>
-                        <div className="flex items-center gap-1.5">
-                            <span className="text-muted-foreground text-sm font-medium">/t/</span>
-                            <Input
-                                id="slug"
-                                value={slug}
-                                onChange={(e) => setSlug(e.target.value.toLowerCase())}
-                                placeholder="ma-boutique"
-                                required
-                            />
-                        </div>
-                        <p className="text-[11px] text-muted-foreground">
-                            Ceci sera l&apos;adresse unique de votre organisation.
+                        <label className="text-sm font-medium">Slug (URL)</label>
+                        <Input
+                            value={slug}
+                            onChange={(e) => setSlug(e.target.value)}
+                            placeholder="mon-entreprise"
+                            required
+                        />
+                        <p className="text-xs text-muted-foreground">
+                            Utilisé dans l&apos;URL: /t/{slug || "slug"}/dashboard
                         </p>
                     </div>
                     <Button type="submit" className="w-full" disabled={isLoading}>
                         {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Créer l&apos;organisation
+                        Créer
                     </Button>
                 </form>
             </DialogContent>

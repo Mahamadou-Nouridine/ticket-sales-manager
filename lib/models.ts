@@ -8,6 +8,7 @@ const tenantSchema = new Schema({
     plan: { type: String, default: 'free' },
     active: { type: Boolean, default: true },
     currency: { type: String, default: 'FCFA' },
+    ownerId: { type: String, required: false }, // Optional for backward compatibility
     created_at: { type: String, required: true },
 });
 

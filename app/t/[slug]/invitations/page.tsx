@@ -1,5 +1,11 @@
 import { getMyInvitations } from "@/actions/invitations";
 import { InvitationsList } from "@/components/account/invitations-list";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+    title: "Invitations",
+    description: "Gérez vos invitations d'organisation",
+};
 
 export default async function InvitationsPage() {
     const invitations = await getMyInvitations();

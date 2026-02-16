@@ -217,7 +217,7 @@ export function UsersList({ users, title, description }: UsersListProps) {
                                     <span className="sm:hidden">Nouveau</span>
                                 </Button>
                             </DialogTrigger>
-                            <DialogContent>
+                            <DialogContent className="max-h-[90vh] overflow-y-auto">
                                 <DialogHeader>
                                     <DialogTitle>Ajouter un Utilisateur</DialogTitle>
                                 </DialogHeader>

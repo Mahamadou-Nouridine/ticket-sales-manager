@@ -8,8 +8,26 @@ import NextTopLoader from "nextjs-toploader";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Ticket Sales Management",
-  description: "Gestion des ventes de tickets",
+  title: {
+    default: 'Vendora - Gestion de Ventes de Tickets',
+    template: '%s | Vendora'
+  },
+  description: 'Plateforme de gestion de ventes de tickets pour organisations. Gérez vos vendeurs, suivez vos ventes et générez des rapports en temps réel.',
+  keywords: ['gestion de ventes', 'tickets', 'vendeurs', 'rapports', 'inventaire'],
+  authors: [{ name: 'Vendora' }],
+  icons: {
+    icon: '/images/logo.svg',
+    shortcut: '/images/logo.svg',
+    apple: '/images/logo.svg',
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'fr_FR',
+    url: 'https://vendora.app',
+    title: 'Vendora - Gestion de Ventes de Tickets',
+    description: 'Plateforme de gestion de ventes de tickets pour organisations',
+    siteName: 'Vendora',
+  },
 };
 
 export default function RootLayout({
