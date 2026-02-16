@@ -1,6 +1,0 @@
-[dotenv@17.2.4] injecting env (6) from .env.local -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
-Connected to MongoDB.
-Creating default tenant...
-Error during migration: TypeError: Cannot read properties of undefined (reading 'name')
-    at migrate (E:\saas\ticket-sales-manager\scripts\migrate-to-multitenant.ts:39:72)
-    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)

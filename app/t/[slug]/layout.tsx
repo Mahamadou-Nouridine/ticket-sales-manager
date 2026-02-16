@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import connectToDatabase from "@/lib/db";
 import { Tenant, Membership } from "@/lib/models";
+import { getUserOrganizations } from "@/actions/tenants";
 
 export default async function DashboardLayout({
     children,
@@ -43,13 +44,14 @@ export default async function DashboardLayout({
 
     const tenant = await Tenant.findOne({ slug, active: true }).lean();
     const tenantName = tenant?.name || "Organisation";
+    const organizations = await getUserOrganizations();
 
     return (
         <div className="flex min-h-[100dvh] bg-background">
-            <Sidebar slug={slug} tenantName={tenantName} />
+            <Sidebar slug={slug} tenantName={tenantName} organizations={organizations} />
             <div className="flex-1 flex flex-col md:pl-64 transition-all duration-300 min-w-0 overflow-x-hidden max-w-full">
                 <header className="flex h-16 items-center gap-4 border-b bg-background px-6 md:hidden sticky top-0 z-10">
-                    <MobileSidebar slug={slug} tenantName={tenantName} />
+                    <MobileSidebar slug={slug} tenantName={tenantName} organizations={organizations} />
                     <div className="font-semibold">Vendora</div>
                 </header>
                 <main className="flex-1 p-4 md:p-8 bg-muted/20">

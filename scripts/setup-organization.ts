@@ -32,7 +32,7 @@ async function main() {
     console.log('\n🏢 --- Organization Setup Utility ---\n');
 
     // 1. Connection String
-    const defaultUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/ticket-sales-manager';
+    const defaultUri = process.env.MONGODB_URI || "";
     let mongoUri = await question(`MongoDB URI [${defaultUri}]: `);
     mongoUri = mongoUri || defaultUri;
 

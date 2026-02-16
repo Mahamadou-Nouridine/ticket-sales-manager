@@ -17,13 +17,15 @@ import { signOut } from "next-auth/react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import { OrgSwitcher } from "./org-switcher";
 
 interface SidebarContentProps extends React.HTMLAttributes<HTMLDivElement> {
     onNavigate?: () => void;
     tenantName?: string;
+    organizations?: any[];
 }
 
-function SidebarContent({ className, onNavigate, slug, tenantName }: SidebarContentProps & { slug: string }) {
+function SidebarContent({ className, onNavigate, slug, tenantName, organizations = [] }: SidebarContentProps & { slug: string }) {
     const pathname = usePathname();
     const { data: session } = useSession();
     const role = (session?.user as any)?.role;
@@ -50,11 +52,16 @@ function SidebarContent({ className, onNavigate, slug, tenantName }: SidebarCont
 
     return (
         <div className={cn("flex h-full flex-col bg-gray-900 text-white", className)}>
-            <div className="flex h-20 flex-col items-center justify-center border-b border-gray-800 px-4 py-2">
-                <h1 className="text-xl font-bold tracking-tight text-white">Vendora</h1>
-                <p className="text-xs text-blue-400 font-medium truncate w-full text-center">
-                    {tenantName || "Organisation"}
-                </p>
+            <div className="flex flex-col border-b border-gray-800 py-1">
+                <div className="px-6 py-4 flex items-center gap-2">
+                    <div className="h-7 w-7 rounded bg-blue-600 flex items-center justify-center font-bold text-sm">V</div>
+                    <h1 className="text-lg font-bold tracking-tight text-white">Vendora</h1>
+                </div>
+                <OrgSwitcher
+                    organizations={organizations}
+                    currentSlug={slug}
+                    currentName={tenantName || "Organisation"}
+                />
             </div>
             <div className="flex-1 overflow-y-auto py-6">
                 <nav className="space-y-1.5 px-3">
@@ -153,15 +160,15 @@ function SidebarContent({ className, onNavigate, slug, tenantName }: SidebarCont
     );
 }
 
-export function Sidebar({ slug, tenantName }: { slug: string; tenantName?: string }) {
+export function Sidebar({ slug, tenantName, organizations }: { slug: string; tenantName?: string; organizations?: any[] }) {
     return (
         <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 shadow-2xl z-20">
-            <SidebarContent slug={slug} tenantName={tenantName} />
+            <SidebarContent slug={slug} tenantName={tenantName} organizations={organizations} />
         </div>
     );
 }
 
-export function MobileSidebar({ slug, tenantName }: { slug: string; tenantName?: string }) {
+export function MobileSidebar({ slug, tenantName, organizations }: { slug: string; tenantName?: string; organizations?: any[] }) {
     const [open, setOpen] = useState(false);
 
     return (
@@ -174,7 +181,7 @@ export function MobileSidebar({ slug, tenantName }: { slug: string; tenantName?:
             </SheetTrigger>
             <SheetContent side="left" className="p-0 w-72 bg-gray-900 border-r-gray-800">
                 <SheetTitle className="sr-only">Vendora Menu</SheetTitle>
-                <SidebarContent onNavigate={() => setOpen(false)} slug={slug} tenantName={tenantName} />
+                <SidebarContent onNavigate={() => setOpen(false)} slug={slug} tenantName={tenantName} organizations={organizations} />
             </SheetContent>
         </Sheet>
     );
