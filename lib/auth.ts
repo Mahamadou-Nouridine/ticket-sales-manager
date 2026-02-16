@@ -76,6 +76,7 @@ export const authOptions: NextAuthOptions = {
                         tenantId: selectedTenantId,
                         tenantSlug: tenantSlug,
                         role: role,
+                        needsPasswordSetup: !user.password_hash,
                     };
                 } catch (error) {
                     console.error("Auth error:", error);
@@ -91,6 +92,7 @@ export const authOptions: NextAuthOptions = {
                 token.tenantId = (user as any).tenantId;
                 token.tenantSlug = (user as any).tenantSlug;
                 token.role = (user as any).role;
+                token.needsPasswordSetup = (user as any).needsPasswordSetup;
             }
             // Support updating tenantId via session update
             if (trigger === "update" && session?.tenantId) {
@@ -124,6 +126,7 @@ export const authOptions: NextAuthOptions = {
                 (session.user as any).tenantId = token.tenantId;
                 (session.user as any).tenantSlug = token.tenantSlug;
                 (session.user as any).role = token.role;
+                (session.user as any).needsPasswordSetup = token.needsPasswordSetup;
             }
             return session;
         },

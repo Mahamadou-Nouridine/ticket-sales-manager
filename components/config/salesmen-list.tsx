@@ -30,7 +30,8 @@ import {
 import { createUser, toggleUserStatus, updateUser } from "@/actions/users";
 import { sendInvitation } from "@/actions/invitations";
 import { useRouter, useParams } from "next/navigation";
-import { Plus, Power, PowerOff, Edit, Loader2, MoreHorizontal, Wand2, Mail } from "lucide-react";
+import { Plus, Power, PowerOff, Edit, Loader2, MoreHorizontal, Wand2, Mail, Link, Copy } from "lucide-react";
+import { getPasswordSetupUrl } from "@/actions/users";
 
 
 interface SalesmenListProps {
@@ -71,28 +72,34 @@ export function SalesmenList({ salesmen, title, description }: SalesmenListProps
         e.preventDefault();
         setIsLoading(true);
         try {
-            await createUser({
+            const result = await createUser({
                 email,
                 username: username || undefined,
                 first_name: firstName,
-                last_name: lastName,
-                password: password,
+                last_name: lastName || "",
                 role: 'seller'
             });
+
+            if (result.error) {
+                if (result.error === "USER_EXISTS") {
+                    setExistingUserEmail(email);
+                    setShowInviteConfirm(true);
+                    return;
+                }
+                if (result.error === "USER_ALREADY_MEMBER") {
+                    toast.error("Cet utilisateur est déjà membre");
+                    return;
+                }
+                toast.error("Erreur lors de la création");
+                return;
+            }
+
             setIsOpen(false);
             resetForm();
             router.refresh();
             toast.success("Vendeur créé avec succès");
         } catch (error: any) {
-            if (error.message === "USER_EXISTS") {
-                // User exists - show invitation option
-                setExistingUserEmail(email);
-                setShowInviteConfirm(true);
-            } else if (error.message === "USER_ALREADY_MEMBER") {
-                toast.error("Cet utilisateur est déjà membre de cette organisation");
-            } else {
-                toast.error(error.message || "Erreur lors de la création");
-            }
+            toast.error(error.message || "Erreur lors de la création");
         } finally {
             setIsLoading(false);
         }
@@ -101,7 +108,11 @@ export function SalesmenList({ salesmen, title, description }: SalesmenListProps
     async function handleSendInvitation() {
         setIsLoading(true);
         try {
-            await sendInvitation({ email: existingUserEmail, role: 'seller' });
+            const result = await sendInvitation({ email: existingUserEmail, role: 'seller' });
+            if (result.error) {
+                toast.error(result.error || "Erreur lors de l'envoi");
+                return;
+            }
             toast.success("Invitation envoyée avec succès");
             setIsOpen(false);
             setShowInviteConfirm(false);
@@ -261,24 +272,18 @@ export function SalesmenList({ salesmen, title, description }: SalesmenListProps
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <label className="text-sm font-medium">Nom</label>
+                                            <label className="text-sm font-medium">Nom (optionnel)</label>
                                             <Input
                                                 value={lastName}
                                                 onChange={(e) => setLastName(e.target.value)}
                                                 placeholder="Ex: Dupont"
-                                                required
                                             />
                                         </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium">Mot de passe</label>
-                                        <Input
-                                            type="password"
-                                            value={password}
-                                            onChange={(e) => setPassword(e.target.value)}
-                                            placeholder="Min 6 caractères"
-                                            required
-                                        />
+                                    <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3">
+                                        <p className="text-xs text-yellow-800">
+                                            Le vendeur n'a pas de mot de passe à la création. Vous pourrez lui envoyer un lien de configuration après l'avoir ajouté.
+                                        </p>
                                     </div>
 
                                     {showInviteConfirm && (
@@ -381,11 +386,10 @@ export function SalesmenList({ salesmen, title, description }: SalesmenListProps
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium">Nom</label>
+                                    <label className="text-sm font-medium">Nom (optionnel)</label>
                                     <Input
                                         value={editLastName}
                                         onChange={(e) => setEditLastName(e.target.value)}
-                                        required
                                     />
                                 </div>
                             </div>
@@ -469,6 +473,27 @@ export function SalesmenList({ salesmen, title, description }: SalesmenListProps
                                                         <PowerOff className="h-4 w-4 text-gray-400" />
                                                     )}
                                                 </Button>
+
+                                                {/* Setup Link Button */}
+                                                {!salesman.password_hash && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        title="Copier le lien de configuration"
+                                                        onClick={async () => {
+                                                            const res = await getPasswordSetupUrl(salesman.id);
+                                                            if (res.success && res.url) {
+                                                                navigator.clipboard.writeText(res.url);
+                                                                toast.success("Lien de configuration copié !");
+                                                            } else {
+                                                                toast.error(res.error || "Erreur");
+                                                            }
+                                                        }}
+                                                        className="h-8 w-8 text-blue-600"
+                                                    >
+                                                        <Link className="h-4 w-4" />
+                                                    </Button>
+                                                )}
                                             </div>
                                         </TableCell>
                                     </TableRow>

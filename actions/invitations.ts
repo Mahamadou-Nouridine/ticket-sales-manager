@@ -35,7 +35,7 @@ export async function sendInvitation(data: {
         tenantId
     });
     if (existingMembership) {
-        throw new Error("Cet utilisateur est déjà membre de cette organisation");
+        return { error: "USER_ALREADY_MEMBER" };
     }
 
     // Check if invitation already exists
@@ -45,7 +45,7 @@ export async function sendInvitation(data: {
         status: 'pending'
     });
     if (existingInvitation) {
-        throw new Error("Une invitation a déjà été envoyée à cet utilisateur");
+        return { error: "INVITATION_ALREADY_SENT" };
     }
 
     const now = new Date().toISOString();

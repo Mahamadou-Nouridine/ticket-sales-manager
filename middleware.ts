@@ -7,8 +7,14 @@ export default withAuth(
         const role = token?.role;
         const path = req.nextUrl.pathname;
 
+        // 0. Force password setup if missing
+        if (token?.needsPasswordSetup && path !== "/setup-password" && path !== "/login") {
+            const uid = token.id;
+            return NextResponse.redirect(new URL(`/setup-password?uid=${uid}`, req.url));
+        }
+
         // 1. Force tenant selection if no tenant in token
-        if (!token?.tenantId && !path.startsWith("/select-tenant") && path !== "/login") {
+        if (!token?.tenantId && !path.startsWith("/select-tenant") && path !== "/login" && path !== "/setup-password") {
             return NextResponse.redirect(new URL("/select-tenant", req.url));
         }
 
@@ -68,5 +74,6 @@ export const config = {
         "/config/:path*", // Legacy?
         "/reports/:path*", // Legacy?
         "/profile/:path*",
+        "/setup-password",
     ],
 };

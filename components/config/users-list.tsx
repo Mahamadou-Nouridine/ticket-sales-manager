@@ -29,8 +29,9 @@ import {
 import { createUser, toggleUserStatus, updateUser } from "@/actions/users";
 import { sendInvitation } from "@/actions/invitations";
 import { useRouter, useParams } from "next/navigation";
-import { Plus, Power, PowerOff, Edit, Shield, Loader2, Wand2, Mail } from "lucide-react";
+import { Plus, Power, PowerOff, Edit, Shield, Loader2, Wand2, Mail, Link, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
+import { getPasswordSetupUrl } from "@/actions/users";
 
 
 interface UsersListProps {
@@ -74,28 +75,38 @@ export function UsersList({ users, title, description }: UsersListProps) {
         e.preventDefault();
         setIsLoading(true);
         try {
-            await createUser({
+            const result = await createUser({
                 username: username || undefined,
                 email,
-                password,
                 role,
                 first_name: firstName,
-                last_name: lastName
+                last_name: lastName || ""
             });
+
+            if (result.error) {
+                if (result.error === "USER_EXISTS") {
+                    setExistingUserEmail(email);
+                    setShowInviteConfirm(true);
+                    return;
+                }
+                if (result.error === "USER_ALREADY_MEMBER") {
+                    toast.error("Cet utilisateur est déjà membre de cette organisation");
+                    return;
+                }
+                if (result.error === "USERNAME_TAKEN") {
+                    toast.error(`Le nom d'utilisateur "${result.username}" est déjà utilisé.`);
+                    return;
+                }
+                toast.error("Une erreur est survenue");
+                return;
+            }
+
             setIsOpen(false);
             resetForm();
             router.refresh();
             toast.success("Utilisateur créé avec succès");
         } catch (error: any) {
-            if (error.message === "USER_EXISTS") {
-                // User exists - show invitation option
-                setExistingUserEmail(email);
-                setShowInviteConfirm(true);
-            } else if (error.message === "USER_ALREADY_MEMBER") {
-                toast.error("Cet utilisateur est déjà membre de cette organisation");
-            } else {
-                toast.error(error.message || "Erreur lors de la création");
-            }
+            toast.error(error.message || "Erreur lors de la création");
         } finally {
             setIsLoading(false);
         }
@@ -104,7 +115,17 @@ export function UsersList({ users, title, description }: UsersListProps) {
     async function handleSendInvitation() {
         setIsLoading(true);
         try {
-            await sendInvitation({ email: existingUserEmail, role });
+            const result = await sendInvitation({ email: existingUserEmail, role });
+            if (result.error) {
+                if (result.error === "USER_ALREADY_MEMBER") {
+                    toast.error("Cet utilisateur est déjà membre");
+                } else if (result.error === "INVITATION_ALREADY_SENT") {
+                    toast.error("Une invitation est déjà en cours");
+                } else {
+                    toast.error("Erreur lors de l'envoi");
+                }
+                return;
+            }
             toast.success("Invitation envoyée avec succès");
             setIsOpen(false);
             setShowInviteConfirm(false);
@@ -176,7 +197,11 @@ export function UsersList({ users, title, description }: UsersListProps) {
     async function handleToggle(id: string, active: boolean) {
         setLoadingActions({ ...loadingActions, [`toggle-${id}`]: true });
         try {
-            await toggleUserStatus(id, active);
+            const result = await toggleUserStatus(id, active);
+            if (result.error === "LAST_MANAGER_PROTECTION") {
+                toast.error("Impossible de désactiver le dernier manager de l'organisation");
+                return;
+            }
             router.refresh();
         } finally {
             setLoadingActions({ ...loadingActions, [`toggle-${id}`]: false });
@@ -265,23 +290,18 @@ export function UsersList({ users, title, description }: UsersListProps) {
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <label className="text-sm font-medium">Nom</label>
+                                            <label className="text-sm font-medium">Nom (optionnel)</label>
                                             <Input
                                                 value={lastName}
                                                 onChange={(e) => setLastName(e.target.value)}
                                                 placeholder="Ex: Dupont"
-                                                required
                                             />
                                         </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium">Mot de passe</label>
-                                        <Input
-                                            type="password"
-                                            value={password}
-                                            onChange={(e) => setPassword(e.target.value)}
-                                            required
-                                        />
+                                    <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3">
+                                        <p className="text-xs text-yellow-800">
+                                            L'utilisateur n'a pas de mot de passe à la création. Vous pourrez lui envoyer un lien de configuration après l'avoir ajouté.
+                                        </p>
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium">Téléphone (optionnel)</label>
@@ -371,6 +391,7 @@ export function UsersList({ users, title, description }: UsersListProps) {
                                     value={editEmail}
                                     onChange={(e) => setEditEmail(e.target.value)}
                                     required
+                                    disabled // Prevent email change here for safety
                                 />
                             </div>
                             <div className="space-y-2">
@@ -405,11 +426,10 @@ export function UsersList({ users, title, description }: UsersListProps) {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium">Nom</label>
+                                    <label className="text-sm font-medium">Nom (optionnel)</label>
                                     <Input
                                         value={editLastName}
                                         onChange={(e) => setEditLastName(e.target.value)}
-                                        required
                                     />
                                 </div>
                             </div>
@@ -527,6 +547,27 @@ export function UsersList({ users, title, description }: UsersListProps) {
                                                         <PowerOff className="h-4 w-4 text-gray-400" />
                                                     )}
                                                 </Button>
+
+                                                {/* Setup Link Button */}
+                                                {!user.password_hash && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        title="Copier le lien de configuration"
+                                                        onClick={async () => {
+                                                            const res = await getPasswordSetupUrl(user.id);
+                                                            if (res.success && res.url) {
+                                                                navigator.clipboard.writeText(res.url);
+                                                                toast.success("Lien de configuration copié !");
+                                                            } else {
+                                                                toast.error(res.error || "Erreur");
+                                                            }
+                                                        }}
+                                                        className="h-8 w-8 text-blue-600"
+                                                    >
+                                                        <Link className="h-4 w-4" />
+                                                    </Button>
+                                                )}
                                             </div>
                                         </TableCell>
                                     </TableRow>

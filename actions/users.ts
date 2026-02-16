@@ -111,45 +111,48 @@ export async function createUser(data: {
         });
 
         if (existingMembership) {
-            throw new Error("USER_ALREADY_MEMBER");
+            return { error: "USER_ALREADY_MEMBER" };
         }
 
         // User exists but not a member - trigger invitation flow
-        throw new Error("USER_EXISTS");
+        return { error: "USER_EXISTS", email: email };
     }
 
     if (!user) {
-        if (!data.password) throw new Error("Un mot de passe est requis pour les nouveaux utilisateurs");
-
         // 1b. Check if username is already taken by someone else (if provided)
         if (username) {
             const existingUsername = await User.findOne({ username });
             if (existingUsername) {
-                throw new Error(`Le nom d'utilisateur "${username}" est déjà utilisé.`);
+                return { error: "USERNAME_TAKEN", username: username };
             }
         }
 
         // Create new Global User
-        const hashedPassword = await hash(data.password, 10);
+        const hashedPassword = data.password ? await hash(data.password, 10) : undefined;
         const now = new Date().toISOString();
+
+        const firstName = data.first_name.trim();
+        const lastName = data.last_name?.trim() || "";
+        const fullName = lastName ? `${firstName} ${lastName}` : firstName;
+
         user = await User.create({
             id: uuidv4(),
             username: username,
             email: email,
-            first_name: data.first_name,
-            last_name: data.last_name,
-            full_name: `${data.first_name} ${data.last_name}`,
+            first_name: firstName,
+            last_name: lastName || undefined,
+            full_name: fullName,
             password_hash: hashedPassword,
             active: true,
             created_at: now
         });
     }
 
-    // 2. Check if already a member of this tenant
+    // 2. Check if already a member of this tenant (Double check if user was newly created)
     const userIdToLink = user.id || user._id;
     const existingMembership = await Membership.findOne({ userId: userIdToLink, tenantId });
     if (existingMembership) {
-        throw new Error("Nom d'utilisateur indisponible");
+        return { error: "USER_ALREADY_MEMBER" };
     }
 
     // 3. Create Membership
@@ -281,6 +284,19 @@ export async function toggleUserStatus(id: string, active: boolean) {
     // But the UI might expect User toggling.
     // Let's toggle Membership active status.
 
+    // Check for "Last Manager" protection
+    if (membership.role === 'manager' && !active) {
+        const activeManagersCount = await Membership.countDocuments({
+            tenantId,
+            role: 'manager',
+            active: true
+        });
+
+        if (activeManagersCount <= 1) {
+            return { error: "LAST_MANAGER_PROTECTION" };
+        }
+    }
+
     membership.active = active;
     await membership.save();
 
@@ -344,9 +360,9 @@ export async function updateUser(id: string, data: {
         if (data.first_name) updateFields.first_name = data.first_name;
         if (data.last_name) updateFields.last_name = data.last_name;
         if (data.first_name || data.last_name) {
-            const fn = data.first_name || userToUpdate.first_name;
-            const ln = data.last_name || userToUpdate.last_name;
-            updateFields.full_name = `${fn} ${ln}`;
+            const fn = data.first_name !== undefined ? data.first_name.trim() : userToUpdate.first_name;
+            const ln = data.last_name !== undefined ? (data.last_name?.trim() || "") : (userToUpdate.last_name || "");
+            updateFields.full_name = ln ? `${fn} ${ln}` : fn;
         }
         if (data.password) {
             updateFields.password_hash = await hash(data.password, 10);
@@ -375,5 +391,57 @@ export async function updateUser(id: string, data: {
     });
 
     revalidatePath("/config/users");
+    return { success: true };
+}
+
+/**
+ * Get password setup URL for a user
+ */
+export async function getPasswordSetupUrl(id: string) {
+    const { tenantId, role } = await requireTenantAccess();
+    if (role !== 'manager') {
+        throw new Error("Unauthorized");
+    }
+
+    await connectToDatabase();
+
+    // Verify membership
+    const membership = await Membership.findOne({ userId: id, tenantId });
+    if (!membership) throw new Error("User not found in this tenant");
+
+    const user = await User.findOne({ id }).lean();
+    if (!user) throw new Error("User not found");
+
+    if (user.password_hash) {
+        return { error: "PASSWORD_ALREADY_SET" };
+    }
+
+    // In a real app, we might use a signed token. 
+    // Here we use the userId as a simple identifier for the setup page.
+    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    const setupUrl = `${baseUrl}/setup-password?uid=${id}`;
+
+    return { success: true, url: setupUrl };
+}
+
+/**
+ * Setup initial password for a user
+ */
+export async function setupInitialPassword(userId: string, password: string) {
+    await connectToDatabase();
+
+    const user = await User.findOne({ id: userId });
+    if (!user) {
+        throw new Error("Utilisateur introuvable");
+    }
+
+    if (user.password_hash) {
+        throw new Error("Le mot de passe a déjà été configuré");
+    }
+
+    const hashedPassword = await hash(password, 10);
+    user.password_hash = hashedPassword;
+    await user.save();
+
     return { success: true };
 }
