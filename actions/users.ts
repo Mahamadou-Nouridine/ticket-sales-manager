@@ -321,7 +321,8 @@ export async function updateUser(id: string, data: {
     first_name?: string;
     last_name?: string;
     password?: string;
-    role?: string
+    role?: string;
+    phone?: string;
 }) {
     const { tenantId, role: currentUserRole, userId: currentUserId } = await requireTenantAccess();
     if (currentUserRole !== 'manager') {
@@ -359,6 +360,7 @@ export async function updateUser(id: string, data: {
         }
         if (data.first_name) updateFields.first_name = data.first_name;
         if (data.last_name) updateFields.last_name = data.last_name;
+        if (data.phone !== undefined) updateFields.phone = data.phone;
         if (data.first_name || data.last_name) {
             const fn = data.first_name !== undefined ? data.first_name.trim() : userToUpdate.first_name;
             const ln = data.last_name !== undefined ? (data.last_name?.trim() || "") : (userToUpdate.last_name || "");

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { setupInitialPassword } from "@/actions/users";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { toast } from "sonner";
 import { Loader2, ShieldCheck, Lock } from "lucide-react";
 
-export default function SetupPasswordPage() {
+function SetupPasswordForm() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const uid = searchParams.get("uid");
@@ -54,7 +54,7 @@ export default function SetupPasswordPage() {
     if (isSuccess) {
         return (
             <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-                <Card className="w-full max-w-md text-center">
+                <Card className="w-full max-w-md text-center border-none shadow-xl">
                     <CardHeader>
                         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
                             <ShieldCheck className="h-6 w-6 text-green-600" />
@@ -76,7 +76,7 @@ export default function SetupPasswordPage() {
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-            <Card className="w-full max-w-md shadow-lg">
+            <Card className="w-full max-w-md shadow-lg border-none">
                 <CardHeader className="space-y-1">
                     <div className="flex items-center justify-center mb-4">
                         <div className="p-3 bg-primary/10 rounded-full">
@@ -91,7 +91,7 @@ export default function SetupPasswordPage() {
                 <CardContent>
                     <form onSubmit={onSubmit} className="space-y-4">
                         <div className="space-y-2">
-                            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                            <label className="text-sm font-medium leading-none">
                                 Nouveau mot de passe
                             </label>
                             <Input
@@ -104,7 +104,7 @@ export default function SetupPasswordPage() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                            <label className="text-sm font-medium leading-none">
                                 Confirmez le mot de passe
                             </label>
                             <Input
@@ -131,3 +131,16 @@ export default function SetupPasswordPage() {
         </div>
     );
 }
+
+export default function SetupPasswordPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        }>
+            <SetupPasswordForm />
+        </Suspense>
+    );
+}
+
