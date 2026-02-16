@@ -24,10 +24,11 @@ import { getPendingInvitationsCount } from "@/actions/invitation_counts";
 interface SidebarContentProps extends React.HTMLAttributes<HTMLDivElement> {
     onNavigate?: () => void;
     tenantName?: string;
+    tenantId?: string;
     organizations?: any[];
 }
 
-function SidebarContent({ className, onNavigate, slug, tenantName, organizations = [] }: SidebarContentProps & { slug: string }) {
+function SidebarContent({ className, onNavigate, slug, tenantId, tenantName, organizations = [] }: SidebarContentProps & { slug: string }) {
     const pathname = usePathname();
     const { data: session } = useSession();
     const role = (session?.user as any)?.role;
@@ -53,9 +54,9 @@ function SidebarContent({ className, onNavigate, slug, tenantName, organizations
     // I can fetch data in useEffect.
 
     useEffect(() => {
-        if (!slug) return;
-        getPendingInvitationsCount(slug).then(setPendingInvitesDetails).catch(console.error);
-    }, [slug]);
+        if (!tenantId) return;
+        getPendingInvitationsCount().then(setPendingInvitesDetails).catch(console.error);
+    }, [tenantId]);
 
     const navigation = [
         { name: "Tableau de bord", href: `/t/${slug}/dashboard`, icon: LayoutDashboard },
@@ -196,15 +197,15 @@ function SidebarContent({ className, onNavigate, slug, tenantName, organizations
     );
 }
 
-export function Sidebar({ slug, tenantName, organizations }: { slug: string; tenantName?: string; organizations?: any[] }) {
+export function Sidebar({ slug, tenantId, tenantName, organizations }: { slug: string; tenantId: string; tenantName?: string; organizations?: any[] }) {
     return (
         <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 shadow-2xl z-20">
-            <SidebarContent slug={slug} tenantName={tenantName} organizations={organizations} />
+            <SidebarContent slug={slug} tenantId={tenantId} tenantName={tenantName} organizations={organizations} />
         </div>
     );
 }
 
-export function MobileSidebar({ slug, tenantName, organizations }: { slug: string; tenantName?: string; organizations?: any[] }) {
+export function MobileSidebar({ slug, tenantId, tenantName, organizations }: { slug: string; tenantId: string; tenantName?: string; organizations?: any[] }) {
     const [open, setOpen] = useState(false);
 
     return (
@@ -217,7 +218,7 @@ export function MobileSidebar({ slug, tenantName, organizations }: { slug: strin
             </SheetTrigger>
             <SheetContent side="left" className="p-0 w-72 bg-gray-900 border-r-gray-800">
                 <SheetTitle className="sr-only">Vendora Menu</SheetTitle>
-                <SidebarContent onNavigate={() => setOpen(false)} slug={slug} tenantName={tenantName} organizations={organizations} />
+                <SidebarContent onNavigate={() => setOpen(false)} slug={slug} tenantId={tenantId} tenantName={tenantName} organizations={organizations} />
             </SheetContent>
         </Sheet>
     );

@@ -19,14 +19,33 @@ export default function SelectTenantPage() {
         "manager": "Manager",
     }
 
+    const [hasAttemptedAutoRedirect, setHasAttemptedAutoRedirect] = useState(false);
+
     useEffect(() => {
         async function loadTenants() {
+            if (hasAttemptedAutoRedirect) return;
+
             try {
                 const data = await getMyTenants();
                 console.log("Select-tenant - Tenants loaded:", data);
                 setTenants(data);
-                // If only one, select it (though backend auth might have done it, this handles explicit manual visit)
-                if (data.length === 1 && !(session?.user as any).tenantId) {
+
+                // Automatic redirection logic
+                const lastSlug = localStorage.getItem("lastTenantSlug");
+                const currentTenantId = (session?.user as any).tenantId;
+
+                if (lastSlug && !currentTenantId) {
+                    const lastTenant = data.find((t: any) => t.slug === lastSlug);
+                    if (lastTenant) {
+                        setHasAttemptedAutoRedirect(true);
+                        handleSelect(lastTenant.id);
+                        return;
+                    }
+                }
+
+                // If only one, select it
+                if (data.length === 1 && !currentTenantId) {
+                    setHasAttemptedAutoRedirect(true);
                     handleSelect(data?.[0]?.id);
                 }
             } catch (error) {
@@ -35,15 +54,19 @@ export default function SelectTenantPage() {
                 setLoading(false);
             }
         }
-        if (session) {
+
+        if (session && !hasAttemptedAutoRedirect) {
             loadTenants();
         }
-    }, [session]);
+    }, [session, hasAttemptedAutoRedirect]);
 
     const handleSelect = async (tenantId: string) => {
         // Find the selected tenant to get its slug
         const selectedTenant = tenants.find((t: any) => t.id === tenantId);
         if (!selectedTenant) return;
+
+        // Save for persistence
+        localStorage.setItem("lastTenantSlug", selectedTenant.slug);
 
         // Trigger session update. 
         // Our jwt callback will verify this tenantId against the DB.

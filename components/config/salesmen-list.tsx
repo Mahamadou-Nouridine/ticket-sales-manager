@@ -25,6 +25,7 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
     DialogTrigger,
 } from "@/components/ui/dialog";
 import { createUser, toggleUserStatus, updateUser } from "@/actions/users";
@@ -32,6 +33,7 @@ import { sendInvitation } from "@/actions/invitations";
 import { useRouter, useParams } from "next/navigation";
 import { Plus, Power, PowerOff, Edit, Loader2, MoreHorizontal, Wand2, Mail, Link, Copy } from "lucide-react";
 import { getPasswordSetupUrl } from "@/actions/users";
+import { cn } from "@/lib/utils";
 
 
 interface SalesmenListProps {
@@ -57,6 +59,8 @@ export function SalesmenList({ salesmen, title, description }: SalesmenListProps
     // Invitation state
     const [showInviteConfirm, setShowInviteConfirm] = useState(false);
     const [existingUserEmail, setExistingUserEmail] = useState("");
+    const [showSetupLinkDialog, setShowSetupLinkDialog] = useState(false);
+    const [createdSetupUrl, setCreatedSetupUrl] = useState("");
     const [loadingActions, setLoadingActions] = useState<Record<string, boolean>>({});
 
     // Edit state
@@ -94,10 +98,17 @@ export function SalesmenList({ salesmen, title, description }: SalesmenListProps
                 return;
             }
 
+            if (result.success && (result as any).setupUrl) {
+                setCreatedSetupUrl((result as any).setupUrl);
+                setShowSetupLinkDialog(true);
+            }
+
             setIsOpen(false);
             resetForm();
             router.refresh();
-            toast.success("Vendeur créé avec succès");
+            if (!(result as any).setupUrl) {
+                toast.success("Vendeur créé avec succès");
+            }
         } catch (error: any) {
             toast.error(error.message || "Erreur lors de la création");
         } finally {
@@ -393,22 +404,47 @@ export function SalesmenList({ salesmen, title, description }: SalesmenListProps
                                     />
                                 </div>
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Nouveau mot de passe (optionnel)</label>
-                                <Input
-                                    type="password"
-                                    value={editPassword}
-                                    onChange={(e) => setEditPassword(e.target.value)}
-                                    placeholder="Laisser vide pour ne pas changer"
-                                />
+                            <div className="flex justify-end gap-3 pt-4">
+                                <Button type="button" variant="outline" onClick={() => setEditingSalesman(null)}>
+                                    Annuler
+                                </Button>
+                                <Button type="submit" disabled={isLoading}>
+                                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                                    Modifier
+                                </Button>
                             </div>
-                            <Button type="submit" className="w-full" disabled={isLoading}>
-                                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Modifier
-                            </Button>
                         </form>
                     </DialogContent>
                 </Dialog>
+
+                {/* Setup Link Result Dialog */}
+                <Dialog open={showSetupLinkDialog} onOpenChange={setShowSetupLinkDialog}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Vendeur créé avec succès !</DialogTitle>
+                            <DialogDescription>
+                                Envoyez ce lien au vendeur pour qu&apos;il puisse configurer son mot de passe.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="flex gap-2 items-center p-3 bg-gray-50 rounded-lg border mt-2">
+                            <Input value={createdSetupUrl} readOnly className="bg-white" />
+                            <Button
+                                size="icon"
+                                className="shrink-0"
+                                onClick={() => {
+                                    navigator.clipboard.writeText(createdSetupUrl);
+                                    toast.success("Lien copié !");
+                                }}
+                            >
+                                <Copy className="h-4 w-4" />
+                            </Button>
+                        </div>
+                        <div className="flex justify-end mt-4">
+                            <Button onClick={() => setShowSetupLinkDialog(false)}>Fermer</Button>
+                        </div>
+                    </DialogContent>
+                </Dialog>
+
 
                 <div className="rounded-md border overflow-hidden">
                     <div className="overflow-x-auto">
@@ -475,28 +511,31 @@ export function SalesmenList({ salesmen, title, description }: SalesmenListProps
                                                 </Button>
 
                                                 {/* Setup Link Button */}
-                                                {!salesman.password_hash && (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        title="Copier le lien de configuration"
-                                                        onClick={async () => {
-                                                            const res = await getPasswordSetupUrl(salesman.id);
-                                                            if (res.success && res.url) {
-                                                                navigator.clipboard.writeText(res.url);
-                                                                toast.success("Lien de configuration copié !");
-                                                            } else {
-                                                                toast.error(res.error || "Erreur");
-                                                            }
-                                                        }}
-                                                        className="h-8 w-8 text-blue-600"
-                                                    >
-                                                        <Link className="h-4 w-4" />
-                                                    </Button>
-                                                )}
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    disabled={!!salesman.password_hash}
+                                                    title={salesman.password_hash ? "Mot de passe déjà configuré" : "Copier le lien de configuration"}
+                                                    onClick={async () => {
+                                                        const res = await getPasswordSetupUrl(salesman.id);
+                                                        if (res.success && res.url) {
+                                                            navigator.clipboard.writeText(res.url);
+                                                            toast.success("Lien de configuration copié !");
+                                                        } else {
+                                                            toast.error(res.error || "Erreur");
+                                                        }
+                                                    }}
+                                                    className={cn(
+                                                        "h-8 w-8",
+                                                        salesman.password_hash ? "text-gray-300" : "text-blue-600"
+                                                    )}
+                                                >
+                                                    <Link className="h-4 w-4" />
+                                                </Button>
                                             </div>
                                         </TableCell>
                                     </TableRow>
+
                                 ))}
                             </TableBody>
                         </Table>

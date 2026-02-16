@@ -1,4 +1,5 @@
 import { Sidebar, MobileSidebar } from "@/components/layout/sidebar";
+import { SessionSync } from "@/components/layout/session-sync";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
@@ -48,10 +49,11 @@ export default async function DashboardLayout({
 
     return (
         <div className="flex min-h-[100dvh] bg-background">
-            <Sidebar slug={slug} tenantName={tenantName} organizations={organizations} />
+            <SessionSync id={tenant.id} />
+            <Sidebar slug={slug} tenantId={tenant.id} tenantName={tenantName} organizations={organizations} />
             <div className="flex-1 flex flex-col md:pl-64 transition-all duration-300 min-w-0 overflow-x-hidden max-w-full">
                 <header className="flex h-16 items-center gap-4 border-b bg-background px-6 md:hidden sticky top-0 z-10">
-                    <MobileSidebar slug={slug} tenantName={tenantName} organizations={organizations} />
+                    <MobileSidebar slug={slug} tenantId={tenant.id} tenantName={tenantName} organizations={organizations} />
                     <div className="font-semibold">Vendora</div>
                 </header>
                 <main className="flex-1 p-4 md:p-8 bg-muted/20">

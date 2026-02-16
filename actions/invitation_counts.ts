@@ -6,7 +6,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
-export async function getPendingInvitationsCount(tenantId: string) {
+export async function getPendingInvitationsCount() {
     const session = await getServerSession(authOptions);
     if (!session || !session.user) return 0;
 
@@ -48,8 +48,8 @@ export async function getPendingInvitationsCount(tenantId: string) {
     // Let's assume OUTGOING pending invitations count for the current tenant.
 
     const count = await Invitation.countDocuments({
-        tenantId,
-        status: 'pending'
+        status: 'pending',
+        invitedUserId: session?.user.id
     });
 
     return count;
