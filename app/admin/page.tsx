@@ -9,7 +9,7 @@ export default async function AdminDashboardPage() {
     const statCards = [
         { title: "Organisations", value: stats.totalTenants, icon: Building2, color: "text-blue-600", bg: "bg-blue-100" },
         { title: "Utilisateurs", value: stats.totalUsers, icon: Users, color: "text-green-600", bg: "bg-green-100" },
-        { title: "Ventes Totales", value: stats.totalSales, icon: Receipt, color: "text-purple-600", bg: "bg-purple-100" },
+        { title: "Commandes Totales", value: stats.totalSales, icon: Receipt, color: "text-purple-600", bg: "bg-purple-100" },
         { title: "Paiements en attente", value: stats.pendingPayments, icon: AlertCircle, color: "text-orange-600", bg: "bg-orange-100" },
     ];
 
@@ -42,7 +42,7 @@ export default async function AdminDashboardPage() {
                         <CardTitle>Vue d'ensemble</CardTitle>
                     </CardHeader>
                     <CardContent className="h-[300px] flex items-center justify-center text-muted-foreground border-2 border-dashed rounded-lg">
-                        Graphique des ventes à venir...
+                        Graphique des commandes à venir...
                     </CardContent>
                 </Card>
                 <Card className="col-span-3">

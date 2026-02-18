@@ -9,9 +9,9 @@ export default async function NewSalePage() {
     return (
         <div className="space-y-8">
             <div>
-                <h2 className="text-3xl font-bold tracking-tight">Nouvelle Vente</h2>
+                <h2 className="text-3xl font-bold tracking-tight">Nouvelle Commande</h2>
                 <p className="text-muted-foreground">
-                    Enregistrer une nouvelle vente de tickets.
+                    Enregistrer une nouvelle commande de tickets.
                 </p>
             </div>
             <SaleForm ticketTypes={ticketTypes} resellers={sellers as any[]} />

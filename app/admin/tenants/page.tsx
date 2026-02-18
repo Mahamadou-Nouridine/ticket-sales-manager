@@ -30,6 +30,7 @@ export default function AdminTenantsPage() {
     const [loading, setLoading] = useState(true);
     const [isCreating, setIsCreating] = useState(false);
     const [setupUrl, setSetupUrl] = useState<string | null>(null);
+    const [isCreatingDialogControlled, setIsCreatingDialogControlled] = useState(false);
 
     // Form states
     const [name, setName] = useState("");
@@ -95,9 +96,23 @@ export default function AdminTenantsPage() {
                     <h1 className="text-3xl font-bold tracking-tight">Organisations</h1>
                     <p className="text-muted-foreground">Gérez tous les espaces de travail de la plateforme.</p>
                 </div>
-                <Dialog onOpenChange={(open) => { if (!open) { setSetupUrl(null); setName(""); setSlug(""); setManagerName(""); setManagerEmail(""); } }}>
+                <Dialog
+                    open={!!setupUrl || isCreatingDialogControlled}
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            setSetupUrl(null);
+                            setIsCreatingDialogControlled(false);
+                            setName("");
+                            setSlug("");
+                            setManagerName("");
+                            setManagerEmail("");
+                        } else {
+                            setIsCreatingDialogControlled(true);
+                        }
+                    }}
+                >
                     <DialogTrigger asChild>
-                        <Button>
+                        <Button onClick={() => setIsCreatingDialogControlled(true)}>
                             <Plus className="w-4 h-4 mr-2" />
                             Nouvelle Organisation
                         </Button>

@@ -59,7 +59,7 @@ export function PaymentModal({ open, onOpenChange, sale, payment, userRole, curr
         setLoading(true);
         try {
             await markSaleAsPaid(sale.id, receiptId);
-            toast.success("Vente marquée comme payée");
+            toast.success("Commande marquée comme payée");
             onSuccess();
             onOpenChange(false);
         } catch (error: any) {
@@ -126,7 +126,7 @@ export function PaymentModal({ open, onOpenChange, sale, payment, userRole, curr
                     <DialogHeader>
                         <DialogTitle>Soumettre un Paiement</DialogTitle>
                         <DialogDescription>
-                            Vente: {(sale as any).seller_name} - {sale.ticket_type_name} (x{sale.quantity})
+                            Commande: {(sale as any).seller_name} - {sale.ticket_type_name} (x{sale.quantity})
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
@@ -181,7 +181,7 @@ export function PaymentModal({ open, onOpenChange, sale, payment, userRole, curr
                     <DialogHeader>
                         <DialogTitle>Marquer comme Payé</DialogTitle>
                         <DialogDescription>
-                            Vente: {(sale as any).seller_name} - {sale.ticket_type_name} (x{sale.quantity})
+                            Commande: {(sale as any).seller_name} - {sale.ticket_type_name} (x{sale.quantity})
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
@@ -195,7 +195,7 @@ export function PaymentModal({ open, onOpenChange, sale, payment, userRole, curr
                             />
                         </div>
                         <p className="text-sm text-muted-foreground">
-                            Cette action marquera immédiatement la vente comme payée.
+                            Cette action marquera immédiatement la commande comme payée.
                         </p>
                     </div>
                     <div className="flex justify-end gap-2">
@@ -220,7 +220,7 @@ export function PaymentModal({ open, onOpenChange, sale, payment, userRole, curr
                     <DialogHeader>
                         <DialogTitle>Détails du Paiement</DialogTitle>
                         <DialogDescription>
-                            Vente: {(sale as any).seller_name} - {sale.ticket_type_name} (x{sale.quantity})
+                            Commande: {(sale as any).seller_name} - {sale.ticket_type_name} (x{sale.quantity})
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
@@ -358,13 +358,13 @@ export function PaymentModal({ open, onOpenChange, sale, payment, userRole, curr
                     <DialogHeader>
                         <DialogTitle>Paiement Effectué</DialogTitle>
                         <DialogDescription>
-                            Vente: {(sale as any).seller_name} - {sale.ticket_type_name} (x{sale.quantity})
+                            Commande: {(sale as any).seller_name} - {sale.ticket_type_name} (x{sale.quantity})
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                         <div className="flex items-center gap-2 text-green-600">
                             <CheckCircle className="h-5 w-5" />
-                            <span className="font-medium">Cette vente a été payée</span>
+                            <span className="font-medium">Cette commande a été payée</span>
                         </div>
                         {sale.invoice_number && (
                             <div>
@@ -397,7 +397,7 @@ export function PaymentModal({ open, onOpenChange, sale, payment, userRole, curr
                     <DialogHeader>
                         <DialogTitle>{isEditing ? "Modifier la Soumission" : "Détails de la Soumission"}</DialogTitle>
                         <DialogDescription>
-                            Vente: {(sale as any).seller_name} - {sale.ticket_type_name} (x{sale.quantity})
+                            Commande: {(sale as any).seller_name} - {sale.ticket_type_name} (x{sale.quantity})
                         </DialogDescription>
                     </DialogHeader>
 

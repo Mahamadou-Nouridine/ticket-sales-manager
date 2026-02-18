@@ -207,7 +207,7 @@ function LeaveOrgDialog({ open, onOpenChange, tenantId, tenantName }: { open: bo
                     <DialogDescription>
                         Êtes-vous sûr de vouloir quitter l'organisation <strong>{tenantName}</strong> ?
                         <br /><br />
-                        Vos ventes passées seront conservées dans l'historique de l'organisation,
+                        Vos commandes passées seront conservées dans l'historique de l'organisation,
                         mais vous n'y aurez plus accès.
                     </DialogDescription>
                 </DialogHeader>

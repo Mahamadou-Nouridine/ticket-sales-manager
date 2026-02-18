@@ -61,7 +61,7 @@ function SidebarContent({ className, onNavigate, slug, tenantId, tenantName, org
 
     const navigation = [
         { name: "Tableau de bord", href: `/t/${slug}/dashboard`, icon: LayoutDashboard },
-        { name: "Ventes", href: `/t/${slug}/sales`, icon: Ticket },
+        { name: "Commandes", href: `/t/${slug}/sales`, icon: Ticket },
         {
             name: "Invitations",
             href: `/t/${slug}/invitations`,

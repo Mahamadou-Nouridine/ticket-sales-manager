@@ -29,12 +29,12 @@ export function ActivityCard({ activities }: ActivityCardProps) {
         if (action === "CREATE" && type === "SALE") {
             const match = details.match(/Created sale of (\d+)/);
             const count = match ? match[1] : "";
-            return `a enregistré une vente ${count ? `de ${count} tickets` : ""}`;
+            return `a enregistré une commande ${count ? `de ${count} tickets` : ""}`;
         }
         if (action === "CREATE" && type === "PAYMENT") return "a transmis un nouveau versement";
         if (action === "APPROVE") return "a validé votre versement";
         if (action === "REJECT") return "a refusé votre versement";
-        if (action === "UPDATE" && details.includes("marked as paid")) return "a marqué une vente comme payée";
+        if (action === "UPDATE" && details.includes("marked as paid")) return "a marqué une commande comme payée";
         if (action === "DELETE" && type === "PAYMENT") return "a annulé une transmission";
         return action.toLowerCase();
     };

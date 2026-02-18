@@ -23,9 +23,9 @@ export default async function EditSalePage({ params }: { params: Promise<{ id: s
     return (
         <div className="space-y-8">
             <div>
-                <h2 className="text-3xl font-bold tracking-tight">Modifier la Vente</h2>
+                <h2 className="text-3xl font-bold tracking-tight">Modifier la Commande</h2>
                 <p className="text-muted-foreground">
-                    Modifier les détails de la vente.
+                    Modifier les détails de la commande.
                 </p>
             </div>
             <SaleForm

@@ -10,7 +10,7 @@ import { Metadata } from "next";
 
 export const metadata: Metadata = {
     title: "Rapports",
-    description: "Analyses détaillées et rapports de ventes",
+    description: "Analyses détaillées et rapports de commandes",
 };
 
 export default async function ReportsPage() {
@@ -33,7 +33,7 @@ export default async function ReportsPage() {
             <div>
                 <h2 className="text-3xl font-bold tracking-tight">Rapports</h2>
                 <p className="text-muted-foreground">
-                    Analyse des ventes, performances et inventaire avec filtres personnalisables.
+                    Analyse des commandes, performances et inventaire avec filtres personnalisables.
                 </p>
             </div>
             <ReportsView sales={sales} ticketTypes={ticketTypes} resellers={resellers as any[]} inventory={inventory} />

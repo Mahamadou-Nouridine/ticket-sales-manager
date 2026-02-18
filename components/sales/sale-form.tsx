@@ -62,10 +62,10 @@ export function SaleForm({ ticketTypes, resellers, initialData, currency = 'FCFA
 
             if (initialData) {
                 await updateSale(initialData.id, data);
-                toast.success("Vente modifiée avec succès");
+                toast.success("Commande modifiée avec succès");
             } else {
                 await createSale(data);
-                toast.success("Vente enregistrée avec succès");
+                toast.success("Commande enregistrée avec succès");
             }
 
             if (onSuccess) {
@@ -76,7 +76,7 @@ export function SaleForm({ ticketTypes, resellers, initialData, currency = 'FCFA
             router.refresh();
         } catch (error: any) {
             console.error(error);
-            toast.error(error.message || "Une erreur est survenue lors de la création/modification de la vente");
+            toast.error(error.message || "Une erreur est survenue lors de la création/modification de la commande");
             setError(error.message || "Une erreur est survenue");
         } finally {
             setIsLoading(false);

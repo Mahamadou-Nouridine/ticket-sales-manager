@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { getGlobalUsers, toggleUserStatusGlobally, toggleUserAdminStatus } from "@/actions/admin";
+import { getGlobalUsers, toggleUserStatusGlobally, toggleUserAdminStatus, getUserSetupLink } from "@/actions/admin";
 import {
     Table,
     TableBody,
@@ -11,13 +11,23 @@ import {
     TableRow
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Power, PowerOff, ShieldCheck, Mail, Phone, ShieldAlert } from "lucide-react";
+import { Power, PowerOff, ShieldCheck, Mail, Phone, ShieldAlert, Copy, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 export default function AdminUsersPage() {
     const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [setupUrl, setSetupUrl] = useState<string | null>(null);
 
     useEffect(() => {
         loadUsers();
@@ -137,12 +147,53 @@ export default function AdminUsersPage() {
                                     >
                                         {user.active ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
                                     </Button>
+                                    {!user.password_hash && (
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            onClick={async () => {
+                                                try {
+                                                    const res = await getUserSetupLink(user.id);
+                                                    if (res.success) {
+                                                        setSetupUrl(res.setupUrl!);
+                                                    }
+                                                } catch (error: any) {
+                                                    toast.error(error.message);
+                                                }
+                                            }}
+                                            title="Lien de configuration"
+                                        >
+                                            <Copy className="w-4 h-4" />
+                                        </Button>
+                                    )}
                                 </TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
                 </Table>
             </div>
+
+            <Dialog open={!!setupUrl} onOpenChange={(open) => !open && setSetupUrl(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Lien de configuration</DialogTitle>
+                        <DialogDescription>
+                            Cet utilisateur n'a pas encore configuré de mot de passe. Envoyez-lui ce lien pour qu'il puisse le faire.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex gap-2 py-4">
+                        <Input value={setupUrl || ""} readOnly />
+                        <Button onClick={() => {
+                            if (setupUrl) {
+                                navigator.clipboard.writeText(setupUrl);
+                                toast.success("Lien copié !");
+                            }
+                        }}>
+                            <Copy className="w-4 h-4" />
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

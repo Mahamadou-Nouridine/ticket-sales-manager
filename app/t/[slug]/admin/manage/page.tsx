@@ -134,7 +134,7 @@ export default function TenantManagePage({ params }: { params: { slug: string } 
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Ventes Totales</CardTitle>
+                        <CardTitle className="text-sm font-medium">Commandes Totales</CardTitle>
                         <Ticket className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
@@ -238,7 +238,7 @@ export default function TenantManagePage({ params }: { params: { slug: string } 
                                 Cette action est irréversible. Elle supprimera définitivement :
                                 <ul className="list-disc list-inside mt-2 space-y-1">
                                     <li>Tous les membres et invitations</li>
-                                    <li>Tout l'historique des ventes et des paiements</li>
+                                    <li>Tout l'historique des commandes et des paiements</li>
                                     <li>Tous les types de tickets et l'inventaire</li>
                                     <li>Tous les journaux d'activité</li>
                                 </ul>

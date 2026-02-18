@@ -6,8 +6,8 @@ import { SalesTable } from "@/components/sales/sales-table";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-    title: "Ventes",
-    description: "Gérez et suivez toutes vos ventes de tickets",
+    title: "Commandes",
+    description: "Gérez et suivez toutes vos commandes de tickets",
 };
 
 export default async function SalesPage() {
@@ -22,8 +22,8 @@ export default async function SalesPage() {
             ticketTypes={ticketTypes}
             resellers={resellers as any[]}
             currency={tenantSettings.currency}
-            title="Ventes"
-            description="Gérez vos ventes de tickets ici."
+            title="Commandes"
+            description="Gérez vos commandes de tickets ici."
         />
     );
 }

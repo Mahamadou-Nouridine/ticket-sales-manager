@@ -81,7 +81,7 @@ export function SalesChart({ sales, ticketTypes, currency = "FCFA" }: SalesChart
                             Analytiques de Performance
                         </CardTitle>
                         <p className="text-sm text-muted-foreground">
-                            Visualisez l'évolution de vos ventes et la répartition
+                            Visualisez l'évolution de vos commandes et la répartition
                         </p>
                     </div>
                 </div>

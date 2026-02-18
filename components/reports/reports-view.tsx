@@ -224,7 +224,7 @@ export function ReportsView({ sales, ticketTypes, resellers, inventory }: Report
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{totalRevenue.toLocaleString()} FCFA</div>
-                        <p className="text-xs text-muted-foreground">{filteredSales.length} vente(s)</p>
+                        <p className="text-xs text-muted-foreground">{filteredSales.length} commande(s)</p>
                     </CardContent>
                 </Card>
                 <Card className="border-l-4 border-l-green-500">
@@ -252,7 +252,7 @@ export function ReportsView({ sales, ticketTypes, resellers, inventory }: Report
                 <Card className="border-l-4 border-l-purple-500">
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-muted-foreground uppercase">
-                            Vente Moyenne
+                            Commande Moyenne
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -266,7 +266,7 @@ export function ReportsView({ sales, ticketTypes, resellers, inventory }: Report
             {salesEvolution.length > 0 && (
                 <Card>
                     <CardHeader>
-                        <CardTitle>Évolution des Ventes</CardTitle>
+                        <CardTitle>Évolution des Commandes</CardTitle>
                     </CardHeader>
                     <CardContent className="h-[300px]">
                         <ResponsiveContainer width="100%" height="100%">

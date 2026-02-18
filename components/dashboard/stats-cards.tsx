@@ -21,7 +21,7 @@ export function StatsCards({
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card className="border-l-4 border-l-blue-500 shadow-sm">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Ventes Totales</CardTitle>
+                    <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Commandes Totales</CardTitle>
                     <Ticket className="h-4 w-4 text-blue-500" />
                 </CardHeader>
                 <CardContent>

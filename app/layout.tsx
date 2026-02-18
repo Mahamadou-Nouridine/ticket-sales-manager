@@ -9,11 +9,11 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: {
-    default: 'Vendora - Gestion de Ventes de Tickets',
+    default: 'Vendora - Gestion des Commandes de Tickets',
     template: '%s | Vendora'
   },
-  description: 'Plateforme de gestion de ventes de tickets pour organisations. Gérez vos vendeurs, suivez vos ventes et générez des rapports en temps réel.',
-  keywords: ['gestion de ventes', 'tickets', 'vendeurs', 'rapports', 'inventaire'],
+  description: 'Plateforme de gestion des commandes de tickets pour organisations. Gérez vos vendeurs, suivez vos commandes et générez des rapports en temps réel.',
+  keywords: ['gestion de commandes', 'tickets', 'vendeurs', 'rapports', 'inventaire'],
   authors: [{ name: 'Vendora' }],
   icons: {
     icon: '/images/logo.svg',
@@ -24,8 +24,8 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'fr_FR',
     url: 'https://vendora.app',
-    title: 'Vendora - Gestion de Ventes de Tickets',
-    description: 'Plateforme de gestion de ventes de tickets pour organisations',
+    title: 'Vendora - Gestion des Commandes de Tickets',
+    description: 'Plateforme de gestion des commandes de tickets pour organisations',
     siteName: 'Vendora',
   },
 };

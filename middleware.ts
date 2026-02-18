@@ -8,7 +8,17 @@ export default withAuth(
         const isAdmin = !!token?.isAdmin;
         const path = req.nextUrl.pathname;
 
-        // 0. Force password setup if missing
+        // Redirect authenticated users away from login page
+        if (path === "/login" && token) {
+            // Already logged in, go to dashboard or select-tenant
+            if (isAdmin && !token.tenantId) {
+                return NextResponse.redirect(new URL("/admin", req.url));
+            }
+            const tenantSlug = (token as any).tenantSlug;
+            return NextResponse.redirect(new URL(tenantSlug ? `/t/${tenantSlug}/dashboard` : "/select-tenant", req.url));
+        }
+
+        // 0. Force password setup if missing (only for authenticated users)
         if (token?.needsPasswordSetup && path !== "/setup-password" && path !== "/login") {
             const uid = token.id;
             return NextResponse.redirect(new URL(`/setup-password?uid=${uid}`, req.url));
@@ -76,7 +86,14 @@ export default withAuth(
     },
     {
         callbacks: {
-            authorized: ({ token }) => !!token,
+            authorized: ({ token, req }) => {
+                const path = req.nextUrl.pathname;
+                // Allow /setup-password and /login without a token
+                if (path === "/setup-password" || path === "/login") {
+                    return true;
+                }
+                return !!token;
+            },
         },
     }
 );
@@ -84,13 +101,14 @@ export default withAuth(
 export const config = {
     matcher: [
         "/",
-        "/dashboard", // Legacy redirect
+        "/dashboard",
         "/t/:path*",
-        "/sales/:path*", // Legacy?
-        "/config/:path*", // Legacy?
-        "/reports/:path*", // Legacy?
+        "/sales/:path*",
+        "/config/:path*",
+        "/reports/:path*",
         "/profile/:path*",
         "/setup-password",
         "/admin/:path*",
+        "/login",
     ],
 };

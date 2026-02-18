@@ -54,7 +54,7 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
                             id="name"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            placeholder="Ex: Ma Société de Ventes"
+                            placeholder="Ex: Ma Société de Commandes"
                         />
                     </div>
 

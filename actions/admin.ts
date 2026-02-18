@@ -2,6 +2,7 @@
 
 import connectToDatabase from "@/lib/db";
 import { User, Tenant, Membership, AuditLog } from "@/lib/models";
+import mongoose from "mongoose";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
@@ -46,71 +47,87 @@ export async function getAllTenants() {
 
 export async function createOrganizationByAdmin(data: { name: string, slug: string, managerName: string, managerEmail: string }) {
     const admin = await requireGlobalAdmin();
-    await connectToDatabase();
+    const conn = await connectToDatabase();
 
-    // 1. Check if slug exists
+    // 1. Check if slug exists (Atomic check outside transaction is okay as first step, 
+    // but better inside for full consistency if possible. We'll do simple checks first.)
     const existingTenant = await Tenant.findOne({ slug: data.slug });
     if (existingTenant) {
         return { success: false, error: "SLUG_ALREADY_EXISTS" };
     }
 
-    // 2. Check if user exists (Should not link existing users per requirement)
     const existingUser = await User.findOne({ email: data.managerEmail.toLowerCase() });
     if (existingUser) {
         return { success: false, error: "USER_ALREADY_EXISTS_GLOBALLY" };
     }
 
-    // 3. Create Tenant
-    const tenantId = uuidv4();
-    const now = new Date().toISOString();
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-    await Tenant.create({
-        id: tenantId,
-        name: data.name,
-        slug: data.slug,
-        created_at: now
-    });
+    try {
+        const tenantId = uuidv4();
+        const userId = uuidv4();
+        const now = new Date().toISOString();
+        const userEmail = data.managerEmail.toLowerCase();
 
-    // 4. Create Manager User
-    const userEmail = data.managerEmail.toLowerCase();
-    const user = await User.create({
-        id: uuidv4(),
-        email: userEmail,
-        first_name: data.managerName.split(' ')[0],
-        last_name: data.managerName.split(' ').slice(1).join(' ') || "",
-        full_name: data.managerName,
-        active: true,
-        created_at: now
-    });
+        // 3. Create Manager User
+        const [user] = await User.create([{
+            id: userId,
+            email: userEmail,
+            first_name: data.managerName.split(' ')[0],
+            last_name: data.managerName.split(' ').slice(1).join(' ') || "",
+            full_name: data.managerName,
+            active: true,
+            created_at: now
+        }], { session });
 
-    // 5. Create Membership
-    await Membership.create({
-        id: uuidv4(),
-        userId: user.id,
-        tenantId,
-        role: 'manager',
-        active: true,
-        created_at: now
-    });
+        // 4. Create Tenant with ownerId
+        await Tenant.create([{
+            id: tenantId,
+            name: data.name,
+            slug: data.slug,
+            ownerId: userId,
+            created_at: now
+        }], { session });
 
-    // 6. Audit Log
-    await AuditLog.create({
-        id: uuidv4(),
-        user_id: admin.id,
-        username: admin.name,
-        action: 'CREATE_TENANT',
-        entity_type: 'Tenant',
-        entity_id: tenantId,
-        details: `Admin created tenant ${data.name} with manager ${userEmail}`,
-        timestamp: now
-    });
+        // 5. Create Membership
+        await Membership.create([{
+            id: uuidv4(),
+            userId: userId,
+            tenantId,
+            role: 'manager',
+            active: true,
+            created_at: now
+        }], { session });
 
-    // 7. Generate Setup Link
-    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-    const setupUrl = `${baseUrl}/setup-password?uid=${user.id}`;
+        // 6. Audit Log
+        await AuditLog.create([{
+            id: uuidv4(),
+            user_id: admin.id,
+            username: admin.name,
+            action: 'CREATE_TENANT',
+            entity_type: 'Tenant',
+            entity_id: tenantId,
+            details: `Admin created tenant ${data.name} with manager ${userEmail}`,
+            timestamp: now
+        }], { session });
 
-    revalidatePath("/admin/tenants");
-    return { success: true, setupUrl };
+        await session.commitTransaction();
+
+        // 7. Generate Setup Link
+        const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+        const setupUrl = `${baseUrl}/setup-password?uid=${userId}`;
+
+        revalidatePath("/admin/tenants");
+        return { success: true, setupUrl };
+
+    } catch (error) {
+        await session.abortTransaction();
+        console.error("Transaction aborted:", error);
+        throw error;
+    } finally {
+        session.endSession();
+    }
 }
 
 export async function toggleTenantStatus(tenantId: string, active: boolean) {
@@ -191,4 +208,20 @@ export async function toggleUserAdminStatus(userId: string, isAdmin: boolean) {
 
     revalidatePath("/admin/users");
     return { success: true };
+}
+
+export async function getUserSetupLink(userId: string) {
+    await requireGlobalAdmin();
+    await connectToDatabase();
+
+    const user = await User.findOne({ id: userId });
+    if (!user) {
+        throw new Error("Utilisateur non trouvé");
+    }
+
+    // Generate setup URL
+    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    const setupUrl = `${baseUrl}/setup-password?uid=${user.id}`;
+
+    return { success: true, setupUrl };
 }

@@ -68,7 +68,7 @@ export function SalesTable({ sales, ticketTypes, resellers, currency = 'FCFA', t
     );
 
     async function handleDelete(id: string) {
-        if (confirm("Êtes-vous sûr de vouloir supprimer cette vente ?")) {
+        if (confirm("Êtes-vous sûr de vouloir supprimer cette commande ?")) {
             setLoadingActions({ ...loadingActions, [`delete-${id}`]: true });
             try {
                 await deleteSale(id);
@@ -95,7 +95,7 @@ export function SalesTable({ sales, ticketTypes, resellers, currency = 'FCFA', t
     function getStatusBadge(status: string) {
         const tooltip = userRole === "manager"
             ? {
-                approved: "Paiement validé. La vente est clôturée.",
+                approved: "Paiement validé. La commande est clôturée.",
                 pending: "Soumission en attente de votre revue.",
                 rejected: "Paiement rejeté. Le vendeur doit corriger.",
                 not_submitted: "Le vendeur n'a pas encore soumis de justificatif."
@@ -169,11 +169,11 @@ export function SalesTable({ sales, ticketTypes, resellers, currency = 'FCFA', t
                                 <Dialog open={isNewSaleOpen} onOpenChange={setIsNewSaleOpen}>
                                     <Button onClick={() => setIsNewSaleOpen(true)} className="whitespace-nowrap">
                                         <Plus className="mr-2 h-4 w-4" />
-                                        Nouvelle Vente
+                                        Nouvelle Commande
                                     </Button>
                                     <DialogContent className="sm:max-w-[600px]">
                                         <DialogHeader>
-                                            <DialogTitle>Nouvelle Vente</DialogTitle>
+                                            <DialogTitle>Nouvelle Commande</DialogTitle>
                                         </DialogHeader>
                                         <SaleForm
                                             ticketTypes={ticketTypes}
@@ -197,7 +197,7 @@ export function SalesTable({ sales, ticketTypes, resellers, currency = 'FCFA', t
                 <Dialog open={!!editingSale} onOpenChange={(open) => !open && setEditingSale(null)}>
                     <DialogContent className="sm:max-w-[600px]">
                         <DialogHeader>
-                            <DialogTitle>Modifier la Vente</DialogTitle>
+                            <DialogTitle>Modifier la Commande</DialogTitle>
                         </DialogHeader>
                         {editingSale && (
                             <SaleForm
@@ -248,7 +248,7 @@ export function SalesTable({ sales, ticketTypes, resellers, currency = 'FCFA', t
                                 {paginatedSales.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={6} className="text-center">
-                                            Aucune vente trouvée.
+                                            Aucune commande trouvée.
                                         </TableCell>
                                     </TableRow>
                                 ) : (
@@ -311,7 +311,7 @@ export function SalesTable({ sales, ticketTypes, resellers, currency = 'FCFA', t
 
                 <div className="flex items-center justify-between py-4">
                     <div className="text-sm text-muted-foreground">
-                        Affichage de {paginatedSales.length} sur {filteredSales.length} vente(s)
+                        Affichage de {paginatedSales.length} sur {filteredSales.length} commande(s)
                     </div>
                     <div className="flex items-center space-x-2">
                         <Button
