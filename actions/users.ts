@@ -43,27 +43,20 @@ export async function getUsers() {
 
 export async function getMyTenants() {
     const session = await getServerSession(authOptions);
-    console.log("getMyTenants - Session:", session?.user);
     if (!session || !session.user) return [];
 
     await connectToDatabase();
     const userId = (session.user as any).id;
-    console.log("getMyTenants - UserId:", userId);
 
     const memberships = await Membership.find({ userId, active: true }).lean();
-    console.log("getMyTenants - Memberships found:", memberships.length, memberships);
 
     // Fetch tenant details for each membership
     const tenantIds = memberships.map((m: any) => m.tenantId);
     const tenants = await Tenant.find({ id: { $in: tenantIds } }).lean();
-    console.log("getMyTenants - Tenants found:", tenants.length, tenants);
 
-    const result = memberships.map((m: any) => {
+    return memberships.map((m: any) => {
         const tenant = tenants.find((t: any) => t.id === m.tenantId);
-        if (!tenant) {
-            console.log("getMyTenants - No tenant found for membership:", m.tenantId);
-            return null;
-        }
+        if (!tenant) return null;
         return {
             id: m.tenantId,
             name: tenant.name,
@@ -71,9 +64,6 @@ export async function getMyTenants() {
             role: m.role,
         };
     }).filter(Boolean);
-
-    console.log("getMyTenants - Final result:", result);
-    return result;
 }
 
 // Add a user to the tenant (Invite flow simplified)

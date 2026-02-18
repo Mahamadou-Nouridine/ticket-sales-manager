@@ -5,6 +5,7 @@ export default withAuth(
     function middleware(req) {
         const token = req.nextauth.token;
         const role = token?.role;
+        const isAdmin = !!token?.isAdmin;
         const path = req.nextUrl.pathname;
 
         // 0. Force password setup if missing
@@ -13,13 +14,22 @@ export default withAuth(
             return NextResponse.redirect(new URL(`/setup-password?uid=${uid}`, req.url));
         }
 
-        // 1. Force tenant selection if no tenant in token
+        // 1. Force tenant selection if no tenant in token (Admins can bypass this for /admin routes)
         if (!token?.tenantId && !path.startsWith("/select-tenant") && path !== "/login" && path !== "/setup-password") {
-            return NextResponse.redirect(new URL("/select-tenant", req.url));
+            if (isAdmin && path.startsWith("/admin")) {
+                // Let admin through to global admin area
+            } else {
+                return NextResponse.redirect(new URL("/select-tenant", req.url));
+            }
         }
 
         // 2. Redirect to tenant dashboard if at root or generic dashboard
         if (path === "/" || path === "/dashboard") {
+            // Priority: if admin and no tenant selected, go to /admin
+            if (isAdmin && !token?.tenantId) {
+                return NextResponse.redirect(new URL("/admin", req.url));
+            }
+
             const tenantSlug = (token as any).tenantSlug;
             if (!tenantSlug) {
                 // If no slug in token, redirect to tenant selection
@@ -28,27 +38,33 @@ export default withAuth(
             return NextResponse.redirect(new URL(`/t/${tenantSlug}/dashboard`, req.url));
         }
 
-        // 3. Validate access to tenant path
+        // 3. Admin Area Protection
+        if (path.startsWith("/admin")) {
+            if (!isAdmin) {
+                // If not admin, send to their tenant dashboard if they have one
+                const slug = (token as any).tenantSlug;
+                return NextResponse.redirect(new URL(slug ? `/t/${slug}/dashboard` : "/select-tenant", req.url));
+            }
+        }
+
+        // 4. Validate access to tenant path
         // path is like /t/[slug]/...
         const match = path.match(/^\/t\/([^\/]+)/);
         if (match) {
-            const pathSlug = match[1];
-            const userSlug = (token as any).tenantSlug;
-            // Strict check: if user is logged in, they should only access their tenant?
-            // Or maybe they have access to multiple?
-            // For now, let's enforce that if they have a selected tenant in session, it matches?
-            // Actually, multi-tenancy usually allows accessing any tenant you are a member of.
-            // But our auth system currently "selects" one tenant into the session.
-            // So we should enforce that the path slug matches the session tenant slug.
-
-            // Note: We need to ensure 'tenantSlug' is available in the token.
-            // If it's not, we might fail.
+            // admins can access any tenant path for now? 
+            // the user said: "If he has a tenant or part of a tenant, he will have his manager/seller role"
+            // this implies that if they ARE in a tenant path, we should check their membership
+            // but middleware is mostly for basic redirection.
         }
 
         // Configuration and sensitive areas: Manager only
         const managerPathPrefixes = ["/config", "/reports", "/admin", "/inventory"];
-        if (managerPathPrefixes.some(p => path.includes(p))) {
-            if (role !== "manager" && role !== "owner") {
+        // Wait, "/admin" is the global admin area now. 
+        // We'll separate tenant-specific admin from global admin.
+        // Paths under /t/[slug]/admin are tenant-specific.
+
+        if (managerPathPrefixes.some(p => path.includes(p)) && !path.startsWith("/admin")) {
+            if (role !== "manager" && role !== "owner" && !isAdmin) {
                 return NextResponse.redirect(new URL(`/t/${(token as any).tenantSlug}/dashboard`, req.url));
             }
         }
@@ -75,5 +91,6 @@ export const config = {
         "/reports/:path*", // Legacy?
         "/profile/:path*",
         "/setup-password",
+        "/admin/:path*",
     ],
 };

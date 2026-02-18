@@ -23,6 +23,7 @@ const userSchema = new Schema({
     full_name: { type: String, required: true },
     phone: { type: String },
     active: { type: Boolean, default: true },
+    isAdmin: { type: Boolean, default: false },
     created_at: { type: String, required: true },
 });
 

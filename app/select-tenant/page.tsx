@@ -23,22 +23,30 @@ export default function SelectTenantPage() {
 
     useEffect(() => {
         async function loadTenants() {
-            if (hasAttemptedAutoRedirect) return;
+            if (hasAttemptedAutoRedirect || tenants.length > 0) return;
 
             try {
                 const data = await getMyTenants();
-                console.log("Select-tenant - Tenants loaded:", data);
                 setTenants(data);
 
                 // Automatic redirection logic
-                const lastSlug = localStorage.getItem("lastTenantSlug");
-                const currentTenantId = (session?.user as any).tenantId;
+                const lastSlug = typeof window !== 'undefined' ? localStorage.getItem("lastTenantSlug") : null;
+                const currentTenantId = (session?.user as any)?.tenantId;
+
+                // Stop if already have a tenant selected (unless we are forced here)
+                if (currentTenantId) {
+                    const currentTenant = data.find((t: any) => t.id === currentTenantId);
+                    if (currentTenant) {
+                        router.push(`/t/${currentTenant.slug}/dashboard`);
+                        return;
+                    }
+                }
 
                 if (lastSlug && !currentTenantId) {
                     const lastTenant = data.find((t: any) => t.slug === lastSlug);
                     if (lastTenant) {
                         setHasAttemptedAutoRedirect(true);
-                        handleSelect(lastTenant.id);
+                        handleSelect(lastTenant.id, data); // Pass data to avoid re-finding
                         return;
                     }
                 }
@@ -46,7 +54,7 @@ export default function SelectTenantPage() {
                 // If only one, select it
                 if (data.length === 1 && !currentTenantId) {
                     setHasAttemptedAutoRedirect(true);
-                    handleSelect(data?.[0]?.id);
+                    handleSelect(data?.[0]?.id, data);
                 }
             } catch (error) {
                 console.error("Failed to load tenants", error);
@@ -55,24 +63,18 @@ export default function SelectTenantPage() {
             }
         }
 
-        if (session && !hasAttemptedAutoRedirect) {
+        if (session?.user?.id && !hasAttemptedAutoRedirect) {
             loadTenants();
         }
-    }, [session, hasAttemptedAutoRedirect]);
+    }, [session?.user?.id, hasAttemptedAutoRedirect, tenants.length]);
 
-    const handleSelect = async (tenantId: string) => {
-        // Find the selected tenant to get its slug
-        const selectedTenant = tenants.find((t: any) => t.id === tenantId);
+    const handleSelect = async (tenantId: string, dataOverride?: any[]) => {
+        const sourceData = dataOverride || tenants;
+        const selectedTenant = sourceData.find((t: any) => t.id === tenantId);
         if (!selectedTenant) return;
 
-        // Save for persistence
         localStorage.setItem("lastTenantSlug", selectedTenant.slug);
-
-        // Trigger session update. 
-        // Our jwt callback will verify this tenantId against the DB.
         await update({ tenantId });
-
-        // Redirect to tenant-specific dashboard
         router.push(`/t/${selectedTenant.slug}/dashboard`);
         router.refresh();
     };

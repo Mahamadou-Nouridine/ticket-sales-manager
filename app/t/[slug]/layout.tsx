@@ -37,8 +37,8 @@ export default async function DashboardLayout({
             active: true
         }).lean();
 
-        if (!membership) {
-            // User doesn't have access to this tenant
+        if (!membership && !(session.user as any).isAdmin) {
+            // User doesn't have access to this tenant and is not a global admin
             redirect("/select-tenant");
         }
     }

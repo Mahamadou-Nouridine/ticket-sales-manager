@@ -12,7 +12,8 @@ import {
     UserCircle,
     Menu,
     Warehouse,
-    Mail
+    Mail,
+    Shield
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
@@ -158,6 +159,25 @@ function SidebarContent({ className, onNavigate, slug, tenantId, tenantName, org
                                     </Link>
                                 );
                             })}
+                        </nav>
+                    </>
+                )}
+
+                {(session?.user as any)?.isAdmin && (
+                    <>
+                        <div className="mt-10 px-3">
+                            <h3 className="px-3 text-[10px] font-bold uppercase tracking-[2px] text-gray-500">
+                                Administration
+                            </h3>
+                        </div>
+                        <nav className="mt-3 space-y-1 px-3">
+                            <Link
+                                href="/admin"
+                                className="group flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-all text-purple-400 hover:bg-purple-900/20"
+                            >
+                                <Shield className="mr-3 h-4 w-4" />
+                                Admin Global
+                            </Link>
                         </nav>
                     </>
                 )}

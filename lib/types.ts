@@ -10,6 +10,7 @@ export interface User {
     full_name: string; // Keep for legacy/convenience
     phone?: string;
     active: boolean;
+    isAdmin: boolean;
     role?: Role; // Added role property
     created_at: string;
 }

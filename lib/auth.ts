@@ -32,6 +32,8 @@ export const authOptions: NextAuthOptions = {
                         $or: [{ email: credentials.email }, { username: credentials.email }]
                     });
 
+                    console.log({ user })
+
                     if (!user || !user.active) {
                         return null;
                     }
@@ -76,6 +78,7 @@ export const authOptions: NextAuthOptions = {
                         tenantId: selectedTenantId,
                         tenantSlug: tenantSlug,
                         role: role,
+                        isAdmin: !!user.isAdmin,
                         needsPasswordSetup: !user.password_hash,
                     };
                 } catch (error) {
@@ -92,6 +95,7 @@ export const authOptions: NextAuthOptions = {
                 token.tenantId = (user as any).tenantId;
                 token.tenantSlug = (user as any).tenantSlug;
                 token.role = (user as any).role;
+                token.isAdmin = (user as any).isAdmin;
                 token.needsPasswordSetup = (user as any).needsPasswordSetup;
             }
             // Support updating tenantId via session update
@@ -126,6 +130,7 @@ export const authOptions: NextAuthOptions = {
                 (session.user as any).tenantId = token.tenantId;
                 (session.user as any).tenantSlug = token.tenantSlug;
                 (session.user as any).role = token.role;
+                (session.user as any).isAdmin = token.isAdmin;
                 (session.user as any).needsPasswordSetup = token.needsPasswordSetup;
             }
             return session;

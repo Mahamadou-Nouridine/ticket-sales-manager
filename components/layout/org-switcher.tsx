@@ -63,9 +63,10 @@ export function OrgSwitcher({ organizations, currentSlug, currentName }: OrgSwit
 
             // Check if user has permission for new path if it's admin/config
             const newRole = org.role;
+            const isAdmin = (session?.user as any)?.isAdmin;
             const isAdminPath = newPath.includes('/admin') || newPath.includes('/config') || newPath.includes('/inventory') || newPath.includes('/reports');
 
-            if (isAdminPath && newRole !== 'manager') {
+            if (isAdminPath && newRole !== 'manager' && !isAdmin) {
                 router.push(`/t/${org.slug}/dashboard`);
             } else {
                 router.push(newPath);
