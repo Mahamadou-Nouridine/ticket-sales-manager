@@ -10,6 +10,7 @@ import {
     FileText,
     LogOut,
     UserCircle,
+    UserPlus,
     Menu,
     Warehouse,
     Mail,
@@ -177,6 +178,13 @@ function SidebarContent({ className, onNavigate, slug, tenantId, tenantName, org
                             >
                                 <Shield className="mr-3 h-4 w-4" />
                                 Admin Global
+                            </Link>
+                            <Link
+                                href="/admin/waitlist"
+                                className="group flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-all text-purple-400 hover:bg-purple-900/20"
+                            >
+                                <UserPlus className="mr-3 h-4 w-4" />
+                                Liste d'attente
                             </Link>
                         </nav>
                     </>

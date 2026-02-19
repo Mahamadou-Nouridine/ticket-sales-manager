@@ -1,7 +1,7 @@
-import { Schema, model, models } from 'mongoose';
+import mongoose from 'mongoose';
 
 // --- Tenant Schema ---
-const tenantSchema = new Schema({
+const tenantSchema = new mongoose.Schema({
     id: { type: String, required: true, unique: true },
     name: { type: String, required: true },
     slug: { type: String, required: true, unique: true, index: true },
@@ -13,7 +13,7 @@ const tenantSchema = new Schema({
 });
 
 // --- User Schema ---
-const userSchema = new Schema({
+const userSchema = new mongoose.Schema({
     id: { type: String, required: true, unique: true },
     email: { type: String, required: true, unique: true, index: true },
     username: { type: String, unique: true, sparse: true, index: true },
@@ -28,7 +28,7 @@ const userSchema = new Schema({
 });
 
 // --- Membership Schema ---
-const membershipSchema = new Schema({
+const membershipSchema = new mongoose.Schema({
     id: { type: String, required: true, unique: true },
     userId: { type: String, required: true, index: true },
     tenantId: { type: String, required: true, index: true },
@@ -50,7 +50,7 @@ membershipSchema.set('toObject', { virtuals: true });
 membershipSchema.set('toJSON', { virtuals: true });
 
 // --- Invitation Schema ---
-const invitationSchema = new Schema({
+const invitationSchema = new mongoose.Schema({
     id: { type: String, required: true, unique: true },
     tenantId: { type: String, required: true, index: true },
     invitedUserId: { type: String, required: true, index: true },
@@ -62,7 +62,7 @@ const invitationSchema = new Schema({
 });
 
 // --- Ticket Type Schema ---
-const ticketTypeSchema = new Schema({
+const ticketTypeSchema = new mongoose.Schema({
     id: { type: String, required: true, unique: true },
     tenantId: { type: String, required: true, index: true },
     name: { type: String, required: true },
@@ -72,7 +72,7 @@ const ticketTypeSchema = new Schema({
 });
 
 // --- Sale Schema ---
-const saleSchema = new Schema({
+const saleSchema = new mongoose.Schema({
     id: { type: String, required: true, unique: true },
     tenantId: { type: String, required: true, index: true },
     seller_id: { type: String, required: true, index: true }, // References User.id
@@ -89,7 +89,7 @@ const saleSchema = new Schema({
 });
 
 // --- Sale Payment Schema ---
-const salePaymentSchema = new Schema({
+const salePaymentSchema = new mongoose.Schema({
     id: { type: String, required: true, unique: true },
     tenantId: { type: String, required: true, index: true },
     sale_id: { type: String, required: true, index: true },
@@ -105,7 +105,7 @@ const salePaymentSchema = new Schema({
 });
 
 // --- Inventory Schema ---
-const ticketInventorySchema = new Schema({
+const ticketInventorySchema = new mongoose.Schema({
     id: { type: String, required: true, unique: true },
     tenantId: { type: String, required: true, index: true },
     ticket_type_id: { type: String, required: true },
@@ -116,7 +116,7 @@ const ticketInventorySchema = new Schema({
 });
 
 // --- Audit Log Schema ---
-const auditLogSchema = new Schema({
+const auditLogSchema = new mongoose.Schema({
     id: { type: String, required: true, unique: true },
     tenantId: { type: String, index: true },
     user_id: { type: String, required: true },
@@ -128,25 +128,48 @@ const auditLogSchema = new Schema({
     timestamp: { type: String, required: true },
 });
 
-// Prevention for model compilation error in dev (Next.js HMR)
-if (process.env.NODE_ENV === 'development') {
-    delete models.User;
-    delete models.Tenant;
-    delete models.Membership;
-    delete models.Invitation;
-    delete models.TicketType;
-    delete models.Sale;
-    delete models.SalePayment;
-    delete models.TicketInventory;
-    delete models.AuditLog;
+// --- Waitlist Schema ---
+export interface IWaitlist {
+    email: string;
+    fullName: string;
+    wifiZoneName: string;
+    position: number;
+    status: 'early_access' | 'waiting';
+    isHandled: boolean;
+    createdAt: Date;
 }
 
-export const User = models.User || model('User', userSchema);
-export const Tenant = models.Tenant || model('Tenant', tenantSchema);
-export const Membership = models.Membership || model('Membership', membershipSchema);
-export const Invitation = models.Invitation || model('Invitation', invitationSchema);
-export const TicketType = models.TicketType || model('TicketType', ticketTypeSchema);
-export const Sale = models.Sale || model('Sale', saleSchema);
-export const SalePayment = models.SalePayment || model('SalePayment', salePaymentSchema);
-export const TicketInventory = models.TicketInventory || model('TicketInventory', ticketInventorySchema);
-export const AuditLog = models.AuditLog || model('AuditLog', auditLogSchema);
+const waitlistSchema = new mongoose.Schema<IWaitlist>({
+    email: { type: String, required: true, unique: true, index: true },
+    fullName: { type: String, required: true },
+    wifiZoneName: { type: String, required: true },
+    position: { type: Number, required: true },
+    status: { type: String, enum: ['early_access', 'waiting'], default: 'early_access' },
+    isHandled: { type: Boolean, default: false },
+    createdAt: { type: Date, default: Date.now }
+});
+
+// Prevention for model compilation error in dev (Next.js HMR)
+if (process.env.NODE_ENV === 'development') {
+    delete (mongoose.models as any).User;
+    delete (mongoose.models as any).Tenant;
+    delete (mongoose.models as any).Membership;
+    delete (mongoose.models as any).Invitation;
+    delete (mongoose.models as any).TicketType;
+    delete (mongoose.models as any).Sale;
+    delete (mongoose.models as any).SalePayment;
+    delete (mongoose.models as any).TicketInventory;
+    delete (mongoose.models as any).AuditLog;
+    delete (mongoose.models as any).Waitlist;
+}
+
+export const User = (mongoose.models.User as mongoose.Model<any>) || mongoose.model<any>('User', userSchema);
+export const Tenant = (mongoose.models.Tenant as mongoose.Model<any>) || mongoose.model<any>('Tenant', tenantSchema);
+export const Membership = (mongoose.models.Membership as mongoose.Model<any>) || mongoose.model<any>('Membership', membershipSchema);
+export const Invitation = (mongoose.models.Invitation as mongoose.Model<any>) || mongoose.model<any>('Invitation', invitationSchema);
+export const TicketType = (mongoose.models.TicketType as mongoose.Model<any>) || mongoose.model<any>('TicketType', ticketTypeSchema);
+export const Sale = (mongoose.models.Sale as mongoose.Model<any>) || mongoose.model<any>('Sale', saleSchema);
+export const SalePayment = (mongoose.models.SalePayment as mongoose.Model<any>) || mongoose.model<any>('SalePayment', salePaymentSchema);
+export const TicketInventory = (mongoose.models.TicketInventory as mongoose.Model<any>) || mongoose.model<any>('TicketInventory', ticketInventorySchema);
+export const AuditLog = (mongoose.models.AuditLog as mongoose.Model<any>) || mongoose.model<any>('AuditLog', auditLogSchema);
+export const Waitlist = (mongoose.models.Waitlist as mongoose.Model<IWaitlist>) || mongoose.model<IWaitlist>('Waitlist', waitlistSchema);

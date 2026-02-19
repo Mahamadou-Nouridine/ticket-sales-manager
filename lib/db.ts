@@ -8,6 +8,8 @@ if (!MONGODB_URI) {
     );
 }
 
+const MONGODB_WAITLIST_URI = process.env.MONGODB_WAITLIST_URI;
+
 /**
  * Global is used here to maintain a cached connection across hot reloads
  * in development. This prevents connections growing exponentially

@@ -10,7 +10,7 @@ export default async function AdminDashboardPage() {
         { title: "Organisations", value: stats.totalTenants, icon: Building2, color: "text-blue-600", bg: "bg-blue-100" },
         { title: "Utilisateurs", value: stats.totalUsers, icon: Users, color: "text-green-600", bg: "bg-green-100" },
         { title: "Commandes Totales", value: stats.totalSales, icon: Receipt, color: "text-purple-600", bg: "bg-purple-100" },
-        { title: "Paiements en attente", value: stats.pendingPayments, icon: AlertCircle, color: "text-orange-600", bg: "bg-orange-100" },
+        { title: "Inscriptions liste d'attente", value: (stats as any).pendingWaitlist, icon: Users, color: "text-orange-600", bg: "bg-orange-100" },
     ];
 
     return (
