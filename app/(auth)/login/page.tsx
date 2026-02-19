@@ -12,6 +12,17 @@ export default function LoginPage() {
                 </p>
             </div>
             <LoginForm />
+
+            <div className="mt-8 text-center">
+                <p className="text-sm text-gray-500 mb-4">Pas encore accès ?</p>
+                <a
+                    href={process.env.WAITLIST_URL}
+                    className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-500 transition-colors"
+                >
+                    Rejoindre la liste d'attente
+                    <span aria-hidden="true">→</span>
+                </a>
+            </div>
         </>
     );
 }
