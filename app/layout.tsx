@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import NextTopLoader from "nextjs-toploader";
+import { Analytics } from "@vercel/analytics/next"
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -38,6 +39,7 @@ export default function RootLayout({
   return (
     <html lang="fr" suppressHydrationWarning>
       <body className={inter.className} suppressHydrationWarning>
+        <Analytics />
         <NextTopLoader />
         <Providers>
           {children}
