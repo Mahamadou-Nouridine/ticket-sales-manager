@@ -7,9 +7,13 @@ export default withAuth(
         const role = token?.role;
         const isAdmin = !!token?.isAdmin;
         const path = req.nextUrl.pathname;
+        // Skip all middleware logic for API routes (managed by Bearer tokens)
+        if (path.startsWith("/api")) {
+            return NextResponse.next();
+        }
 
-        // Redirect authenticated users away from login page
-        if (path === "/login" && token) {
+        // Redirect authenticated users away from auth pages
+        if ((path === "/login" || path === "/forgot-password" || path === "/reset-password") && token) {
             // Already logged in, go to dashboard or select-tenant
             if (isAdmin && !token.tenantId) {
                 return NextResponse.redirect(new URL("/admin", req.url));
@@ -88,8 +92,14 @@ export default withAuth(
         callbacks: {
             authorized: ({ token, req }) => {
                 const path = req.nextUrl.pathname;
-                // Allow /setup-password and /login without a token
-                if (path === "/setup-password" || path === "/login") {
+                // Allow public auth pages and API routes (which use their own auth) without a session token
+                if (
+                    path === "/setup-password" ||
+                    path === "/login" ||
+                    path === "/forgot-password" ||
+                    path === "/reset-password" ||
+                    path.startsWith("/api/admin")
+                ) {
                     return true;
                 }
                 return !!token;
@@ -110,5 +120,8 @@ export const config = {
         "/setup-password",
         "/admin/:path*",
         "/login",
+        "/forgot-password",
+        "/reset-password",
+        "/api/admin/:path*",
     ],
 };

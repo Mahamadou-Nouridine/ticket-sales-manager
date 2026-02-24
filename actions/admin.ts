@@ -7,6 +7,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { v4 as uuidv4 } from "uuid";
+import transporter from "@/lib/mail";
 
 /**
  * Ensures the current user is a global administrator.
@@ -231,26 +232,41 @@ export async function getUserSetupLink(userId: string) {
 // --- Waitlist Management ---
 
 function generateOnboardingEmail(setupUrl: string) {
-    return `Bonjour,
+    return `
+        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 0; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; color: #1e293b;">
+            <div style="background-color: #2563eb; padding: 40px 20px; text-align: center;">
+                <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.025em;">Bienvenue sur Vendora !</h1>
+            </div>
+            <div style="padding: 40px 30px; line-height: 1.6;">
+                <p style="font-size: 16px; margin-bottom: 24px;">Bonjour,</p>
+                <p style="font-size: 16px; margin-bottom: 24px;">Félicitations ! Vous avez été sélectionné pour rejoindre la phase de test exclusive de <strong>Vendora</strong>. Vous faites désormais partie des premiers utilisateurs qui vont nous aider à façonner le futur de la gestion de Wifi-Zone.</p>
+                
+                <h3 style="color: #2563eb; font-size: 18px; margin-top: 32px; margin-bottom: 16px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;">1. Configurez votre compte</h3>
+                <p style="font-size: 15px; margin-bottom: 24px;">Cliquez sur le bouton ci-dessous pour choisir votre mot de passe et accéder instantanément à votre tableau de bord.</p>
+                <div style="text-align: center; margin: 32px 0;">
+                    <a href="${setupUrl}" style="background-color: #2563eb; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);">Activer mon compte</a>
+                </div>
 
-Félicitations ! Vous avez été sélectionné pour rejoindre la phase de test exclusive de Vendora. Vous faites désormais partie des 20 premiers utilisateurs qui vont nous aider à façonner le futur de la gestion de Wifi-Zone.
+                <h3 style="color: #2563eb; font-size: 18px; margin-top: 32px; margin-bottom: 16px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;">2. Maîtrisez l'outil en 5 minutes</h3>
+                <p style="font-size: 15px; margin-bottom: 24px;">Consultez notre documentation officielle pour comprendre le fonctionnement (Zonage, Ventes, Rapports) : <br/>
+                <a href="https://vendora-waitlist.vercel.app/docs" style="color: #2563eb; text-decoration: underline;">vendora-waitlist.vercel.app/docs</a></p>
 
-Voici les prochaines étapes pour commencer :
+                <h3 style="color: #2563eb; font-size: 18px; margin-top: 32px; margin-bottom: 16px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;">3. Rejoignez la communauté</h3>
+                <p style="font-size: 15px; margin-bottom: 24px;">Intégrez notre groupe WhatsApp privé pour échanger avec les autres testeurs et nous faire part de vos retours en direct : <br/>
+                <a href="https://chat.whatsapp.com/FplCypHbZIu45AhwWhdaHk" style="color: #2563eb; text-decoration: underline;">Rejoindre le groupe WhatsApp</a></p>
 
-🔹 Configurez votre compte
-Cliquez sur ce lien pour choisir votre mot de passe et accéder à votre tableau de bord : ${setupUrl}
+                <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin-top: 40px; border-left: 4px solid #2563eb;">
+                    <p style="font-size: 14px; margin: 0; color: #64748b;">Si vous rencontrez le moindre problème, posez simplement votre question sur le groupe WhatsApp.</p>
+                </div>
 
-🔹 Maîtrisez l'outil en 5 minutes
-Consultez notre documentation officielle pour comprendre le fonctionnement (Zonage, Ventes, Rapports) : https://vendora-waitlist.vercel.app/docs
-
-🔹 Rejoignez la communauté
-Intégrez notre groupe WhatsApp privé pour échanger avec les autres testeurs et nous faire part de vos retours en direct : https://chat.whatsapp.com/FplCypHbZIu45AhwWhdaHk
-
-Si vous rencontrez le moindre problème, posez simplement votre question sur le groupe WhatsApp.
-
-Bienvenue dans l'aventure !
-
-L'équipe Vendora`;
+                <p style="font-size: 16px; margin-top: 40px; font-weight: 600;">Bienvenue dans l'aventure !</p>
+                <p style="font-size: 15px; color: #64748b;">L'équipe Vendora</p>
+            </div>
+            <div style="background-color: #f1f5f9; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
+                <p style="margin: 0; font-size: 12px; color: #94a3b8;">&copy; 2026 Vendora. Tous droits réservés.</p>
+            </div>
+        </div>
+    `;
 }
 
 export async function getWaitlistEntries() {
@@ -281,8 +297,30 @@ export async function getWaitlistEmailTemplate(waitlistId: string) {
     return { success: true, emailTemplate };
 }
 
-export async function onboardWaitlistUser(waitlistId: string) {
-    const admin = await requireGlobalAdmin();
+async function ensureUniqueSlug(base: string) {
+    let candidate = base;
+    let attempt = 0;
+    // loop until we find a slug that's not used
+    while (await Tenant.findOne({ slug: candidate }).select("slug")) {
+        attempt++;
+        const suffix = Math.random().toString(36).slice(2, 6);
+        candidate = `${base}-${suffix}`;
+        if (attempt > 10) {
+            // last resort: append timestamp
+            candidate = `${base}-${Date.now()}`;
+        }
+    }
+    return candidate;
+}
+
+export async function onboardWaitlistUser(waitlistId: string, options?: { sendEmail?: boolean; adminContext?: { id: string; name: string } }) {
+    let admin;
+    if (options?.adminContext) {
+        admin = options.adminContext;
+    } else {
+        admin = await requireGlobalAdmin();
+    }
+
     await connectToDatabase();
 
     const entry = await Waitlist.findById(waitlistId);
@@ -292,8 +330,7 @@ export async function onboardWaitlistUser(waitlistId: string) {
 
     // 1. Prepare data
     const email = entry.email.toLowerCase().trim();
-    // Simple slugification: lowercase, replace spaces/specials with dash
-    const slug = entry.wifiZoneName
+    const baseSlug = entry.wifiZoneName
         .toLowerCase()
         .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove accents
         .replace(/[^a-z0-9]/g, "-") // Replace non-alphanumeric with -
@@ -301,10 +338,7 @@ export async function onboardWaitlistUser(waitlistId: string) {
         .replace(/^-|-$/g, ""); // Trim -
 
     // 2. Pre-transaction checks
-    const existingTenant = await Tenant.findOne({ slug });
-    if (existingTenant) {
-        return { success: false, error: "SLUG_ALREADY_EXISTS", details: `Le domaine '${slug}' est déjà utilisé par une autre zone.` };
-    }
+    const finalSlug = await ensureUniqueSlug(baseSlug);
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -335,7 +369,7 @@ export async function onboardWaitlistUser(waitlistId: string) {
         await Tenant.create([{
             id: tenantId,
             name: entry.wifiZoneName,
-            slug: slug,
+            slug: finalSlug,
             ownerId: userId,
             created_at: now
         }], { session });
@@ -358,7 +392,7 @@ export async function onboardWaitlistUser(waitlistId: string) {
             action: 'ONBOARD_WAITLIST_USER',
             entity_type: 'Tenant',
             entity_id: tenantId,
-            details: `Admin approved waitlist entry for ${email}. Created tenant ${slug}.`,
+            details: `Waitlist entry approved for ${email}. Created tenant ${finalSlug}.`,
             timestamp: now
         }], { session });
 
@@ -372,8 +406,26 @@ export async function onboardWaitlistUser(waitlistId: string) {
         const setupUrl = `${baseUrl}/setup-password?uid=${userId}`;
         const emailTemplate = generateOnboardingEmail(setupUrl);
 
+        // 5. Send email if requested
+        let emailSent = false;
+        if (options?.sendEmail) {
+            try {
+                const mailOptions = {
+                    from: process.env.MAIL_SENDER,
+                    to: email,
+                    subject: "Bienvenue sur Vendora ! - Accès au test exclusif",
+                    html: emailTemplate,
+                };
+                const info = await transporter.sendMail(mailOptions);
+                emailSent = !!info.messageId;
+            } catch (mailError) {
+                console.error("Failed to send onboarding email automatically:", mailError);
+                // We don't fail the whole process if email fails, but we could return the status
+            }
+        }
+
         revalidatePath("/admin/waitlist");
-        return { success: true, emailTemplate };
+        return { success: true, emailTemplate, emailSent };
 
     } catch (error) {
         await session.abortTransaction();
