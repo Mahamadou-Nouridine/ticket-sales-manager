@@ -1,45 +1,57 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { requestPasswordReset } from "@/actions/auth";
+import Link from "next/link";
 
-export function LoginForm() {
-    const router = useRouter();
+export function ForgotPasswordForm() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState<string | null>(null);
 
     async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault();
         setIsLoading(true);
         setError(null);
+        setSuccess(null);
 
         const formData = new FormData(event.currentTarget);
         const email = formData.get("email") as string;
-        const password = formData.get("password") as string;
 
         try {
-            const result = await signIn("credentials", {
-                email,
-                password,
-                redirect: false,
-            });
-
-            if (result?.error) {
-                setError("Email ou mot de passe incorrect");
-                setIsLoading(false);
+            const result = await requestPasswordReset(email);
+            if (result.error) {
+                setError(result.error);
             } else {
-                // Keep loading state true while redirecting
-                router.push("/dashboard");
-                router.refresh();
+                setSuccess(result.message || "Email envoyé !");
             }
         } catch (error) {
             setError("Une erreur est survenue");
+        } finally {
             setIsLoading(false);
         }
+    }
+
+    if (success) {
+        return (
+            <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 text-center">
+                <div className="mb-4 text-green-600 font-medium">
+                    {success}
+                </div>
+                <p className="text-sm text-gray-500 mb-6">
+                    Veuillez vérifier votre boîte de réception et vos indésirables.
+                </p>
+                <Button variant="outline" asChild className="w-full">
+                    <Link href="/login">
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        Retour à la connexion
+                    </Link>
+                </Button>
+            </div>
+        );
     }
 
     return (
@@ -50,41 +62,14 @@ export function LoginForm() {
                         htmlFor="email"
                         className="block text-sm font-medium text-gray-700"
                     >
-                        Email / Nom d'utilisateur
+                        Votre adresse email
                     </label>
                     <div className="mt-1">
                         <Input
                             id="email"
                             name="email"
-                            type="text"
-                            required
-                            disabled={isLoading}
-                        />
-                    </div>
-                </div>
-
-                <div>
-                    <div className="flex items-center justify-between">
-                        <label
-                            htmlFor="password"
-                            className="block text-sm font-medium text-gray-700"
-                        >
-                            Mot de passe
-                        </label>
-                        <div className="text-sm">
-                            <a
-                                href="/forgot-password"
-                                className="font-medium text-blue-600 hover:text-blue-500"
-                            >
-                                Mot de passe oublié ?
-                            </a>
-                        </div>
-                    </div>
-                    <div className="mt-1">
-                        <Input
-                            id="password"
-                            name="password"
-                            type="password"
+                            type="email"
+                            placeholder="exemple@email.com"
                             required
                             disabled={isLoading}
                         />
@@ -104,8 +89,17 @@ export function LoginForm() {
                         className="w-full"
                     >
                         {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Se connecter
+                        Envoyer le lien de réinitialisation
                     </Button>
+                </div>
+
+                <div className="text-center">
+                    <Link
+                        href="/login"
+                        className="text-sm font-medium text-blue-600 hover:text-blue-500"
+                    >
+                        Retour à la connexion
+                    </Link>
                 </div>
             </form>
         </div>
