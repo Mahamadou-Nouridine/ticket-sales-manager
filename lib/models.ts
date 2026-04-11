@@ -9,6 +9,7 @@ const tenantSchema = new mongoose.Schema({
     active: { type: Boolean, default: true },
     currency: { type: String, default: 'FCFA' },
     ownerId: { type: String, required: false }, // Optional for backward compatibility
+    notificationEmails: { type: [String], default: [] },
     created_at: { type: String, required: true },
 });
 

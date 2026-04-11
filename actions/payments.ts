@@ -4,9 +4,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import connectToDatabase from "@/lib/db";
 import { requireTenantAccess } from "@/lib/tenant";
-import { SalePayment, Sale, AuditLog } from "@/lib/models";
+import { SalePayment, Sale, AuditLog, Tenant, User } from "@/lib/models";
 import { v4 as uuidv4 } from "uuid";
 import { revalidateTenantPaths } from "@/lib/revalidate";
+import { sendSaleSubmissionNotification } from "@/lib/mail";
 
 /**
  * Submit a payment receipt for a sale (Seller only)
@@ -60,6 +61,36 @@ export async function submitPayment(
         });
 
         await revalidateTenantPaths(["/sales"]);
+
+        // Send Notification to Managers
+        const tenant = await Tenant.findOne({ id: tenantId }).lean();
+        if (tenant) {
+            let recipientEmails = tenant.notificationEmails || [];
+
+            // Fallback to owner email if list is empty
+            if (recipientEmails.length === 0 && tenant.ownerId) {
+                const owner = await User.findOne({ id: tenant.ownerId }).select('email').lean();
+                if (owner?.email) {
+                    recipientEmails = [owner.email];
+                }
+            }
+
+            if (recipientEmails.length > 0) {
+                const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+                const sellerName = user.full_name || user.username || user.email;
+                
+                // Fire and forget email
+                sendSaleSubmissionNotification(recipientEmails, {
+                    sellerName,
+                    amount,
+                    currency: tenant.currency || 'FCFA',
+                    receiptId,
+                    tenantName: tenant.name,
+                    dashboardUrl: `${baseUrl}/t/${tenant.slug}/dashboard`
+                }).catch(err => console.error("Async email notification failed:", err));
+            }
+        }
+
         return { success: true, paymentId: existingPayment.id };
     }
 
@@ -90,6 +121,35 @@ export async function submitPayment(
     });
 
     await revalidateTenantPaths(["/sales"]);
+
+    // Send Notification to Managers
+    const tenant = await Tenant.findOne({ id: tenantId }).lean();
+    if (tenant) {
+        let recipientEmails = tenant.notificationEmails || [];
+
+        // Fallback to owner email if list is empty
+        if (recipientEmails.length === 0 && tenant.ownerId) {
+            const owner = await User.findOne({ id: tenant.ownerId }).select('email').lean();
+            if (owner?.email) {
+                recipientEmails = [owner.email];
+            }
+        }
+
+        if (recipientEmails.length > 0) {
+            const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+            const sellerName = user.full_name || user.username || user.email;
+            
+            // Fire and forget email
+            sendSaleSubmissionNotification(recipientEmails, {
+                sellerName,
+                amount,
+                currency: tenant.currency || 'FCFA',
+                receiptId,
+                tenantName: tenant.name,
+                dashboardUrl: `${baseUrl}/t/${tenant.slug}/dashboard`
+            }).catch(err => console.error("Async email notification failed:", err));
+        }
+    }
 
     return { success: true, paymentId };
 }

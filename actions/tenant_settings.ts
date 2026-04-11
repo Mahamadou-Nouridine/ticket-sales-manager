@@ -9,7 +9,7 @@ import { revalidateTenantPaths } from "@/lib/revalidate";
 /**
  * Update tenant settings (Manager only)
  */
-export async function updateTenantSettings(data: { currency?: string; name?: string }) {
+export async function updateTenantSettings(data: { currency?: string; name?: string; notificationEmails?: string[] }) {
     const { tenantId, role, userId } = await requireTenantAccess();
 
     if (role !== 'owner' && role !== 'manager') {
@@ -24,6 +24,7 @@ export async function updateTenantSettings(data: { currency?: string; name?: str
     const updates: any = {};
     if (data.currency) updates.currency = data.currency;
     if (data.name) updates.name = data.name;
+    if (data.notificationEmails) updates.notificationEmails = data.notificationEmails;
 
     await Tenant.updateOne({ id: tenantId }, updates);
 
@@ -59,6 +60,7 @@ export async function getTenantSettings() {
         slug: tenant.slug,
         currency: tenant.currency || 'FCFA',
         plan: tenant.plan,
-        active: tenant.active
+        active: tenant.active,
+        notificationEmails: tenant.notificationEmails || []
     };
 }

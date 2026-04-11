@@ -41,6 +41,30 @@ export async function getUsers() {
     }).filter(Boolean);
 }
 
+/**
+ * Get all managers for the CURRENT TENANT
+ */
+export async function getManagers() {
+    const { tenantId } = await requireTenantAccess();
+    await connectToDatabase();
+
+    const memberships = await Membership.find({
+        tenantId,
+        role: "manager",
+        active: true
+    }).populate('user').lean();
+
+    return memberships.map((m: any) => {
+        const u = m.user;
+        if (!u) return null;
+        return {
+            id: u.id,
+            email: u.email,
+            full_name: u.full_name || `${u.first_name} ${u.last_name}`,
+        };
+    }).filter(Boolean);
+}
+
 export async function getMyTenants() {
     const session = await getServerSession(authOptions);
     if (!session || !session.user) return [];

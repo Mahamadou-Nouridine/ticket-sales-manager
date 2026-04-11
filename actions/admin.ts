@@ -371,6 +371,7 @@ export async function onboardWaitlistUser(waitlistId: string, options?: { sendEm
             name: entry.wifiZoneName,
             slug: finalSlug,
             ownerId: userId,
+            notificationEmails: [email],
             created_at: now
         }], { session });
 

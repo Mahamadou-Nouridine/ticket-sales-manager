@@ -81,6 +81,7 @@ function SidebarContent({ className, onNavigate, slug, tenantId, tenantName, org
         ...(isManager ? [{ name: "Types de Tickets", href: `/t/${slug}/config/ticket-types` }] : []),
         ...(isManager ? [{ name: "Vendeurs", href: `/t/${slug}/config/salesmen` }] : []),
         ...(isManager ? [{ name: "Utilisateurs", href: `/t/${slug}/config/users` }] : []),
+        ...(isManager ? [{ name: "Paramètres", href: `/t/${slug}/config/settings` }] : []),
         ...(isManager ? [{ name: "Logs d'Activité", href: `/t/${slug}/admin/logs` }] : []),
     ];
 

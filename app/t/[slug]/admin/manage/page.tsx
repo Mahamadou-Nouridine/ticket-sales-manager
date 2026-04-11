@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, use } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { getOrganizationStats, updateOrganization, deleteOrganization, getTenantDetails } from "@/actions/tenants";
@@ -23,6 +23,7 @@ import {
 export default function TenantManagePage({ params }: { params: { slug: string } }) {
     const { data: session, update: updateSession } = useSession();
     const router = useRouter();
+    const resolvedParams = use(params);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState(false);
@@ -69,7 +70,7 @@ export default function TenantManagePage({ params }: { params: { slug: string } 
             }
         }
         loadData();
-    }, [tenantId, session, router, params.slug]);
+    }, [tenantId, session, router, resolvedParams.slug]);
 
     async function handleUpdate(e: React.FormEvent) {
         e.preventDefault();
@@ -234,7 +235,7 @@ export default function TenantManagePage({ params }: { params: { slug: string } 
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-sm text-red-600/80 mb-4 leading-relaxed">
+                            <div className="text-sm text-red-600/80 mb-4 leading-relaxed">
                                 Cette action est irréversible. Elle supprimera définitivement :
                                 <ul className="list-disc list-inside mt-2 space-y-1">
                                     <li>Tous les membres et invitations</li>
@@ -242,7 +243,7 @@ export default function TenantManagePage({ params }: { params: { slug: string } 
                                     <li>Tous les types de tickets et l'inventaire</li>
                                     <li>Tous les journaux d'activité</li>
                                 </ul>
-                            </p>
+                            </div>
                             <Dialog>
                                 <DialogTrigger asChild>
                                     <Button variant="destructive" className="w-full sm:w-auto">
