@@ -20,7 +20,7 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 
-export default function TenantManagePage({ params }: { params: { slug: string } }) {
+export default function TenantManagePage({ params }: { params: Promise<{ slug: string }> }) {
     const { data: session, update: updateSession } = useSession();
     const router = useRouter();
     const resolvedParams = use(params);
@@ -47,7 +47,7 @@ export default function TenantManagePage({ params }: { params: { slug: string } 
 
                 if (details.role !== 'manager') {
                     // Redirect non-managers
-                    router.push(`/t/${params.slug}/dashboard`);
+                    router.push(`/t/${resolvedParams.slug}/dashboard`);
                     toast.error("Accès non autorisé");
                     return;
                 }
