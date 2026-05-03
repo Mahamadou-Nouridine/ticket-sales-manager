@@ -9,7 +9,14 @@ const tenantSchema = new mongoose.Schema({
     active: { type: Boolean, default: true },
     currency: { type: String, default: 'FCFA' },
     ownerId: { type: String, required: false }, // Optional for backward compatibility
-    notificationEmails: { type: [String], default: [] },
+    notificationEmails: { type: [String], default: [] }, // Legacy
+    notificationRecipients: [{
+        email: { type: String, required: true },
+        notifications: {
+            sale_submission: { type: Boolean, default: true },
+            new_demand: { type: Boolean, default: true },
+        }
+    }],
     created_at: { type: String, required: true },
 });
 
@@ -129,6 +136,23 @@ const auditLogSchema = new mongoose.Schema({
     timestamp: { type: String, required: true },
 });
 
+// --- Demand Schema ---
+const demandSchema = new mongoose.Schema({
+    id: { type: String, required: true, unique: true },
+    tenantId: { type: String, required: true, index: true },
+    seller_id: { type: String, required: true, index: true },
+    ticket_type_id: { type: String, required: true },
+    ticket_type_name: { type: String, required: true },
+    quantity: { type: Number, required: true },
+    notes: { type: String },
+    status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+    reviewed_by: { type: String },
+    reviewed_at: { type: String },
+    rejection_reason: { type: String },
+    created_sale_id: { type: String },
+    created_at: { type: String, required: true },
+});
+
 // --- Waitlist Schema ---
 export interface IWaitlist {
     email: string;
@@ -162,6 +186,7 @@ if (process.env.NODE_ENV === 'development') {
     delete (mongoose.models as any).TicketInventory;
     delete (mongoose.models as any).AuditLog;
     delete (mongoose.models as any).Waitlist;
+    delete (mongoose.models as any).Demand;
 }
 
 export const User = (mongoose.models.User as mongoose.Model<any>) || mongoose.model<any>('User', userSchema);
@@ -174,3 +199,4 @@ export const SalePayment = (mongoose.models.SalePayment as mongoose.Model<any>) 
 export const TicketInventory = (mongoose.models.TicketInventory as mongoose.Model<any>) || mongoose.model<any>('TicketInventory', ticketInventorySchema);
 export const AuditLog = (mongoose.models.AuditLog as mongoose.Model<any>) || mongoose.model<any>('AuditLog', auditLogSchema);
 export const Waitlist = (mongoose.models.Waitlist as mongoose.Model<IWaitlist>) || mongoose.model<IWaitlist>('Waitlist', waitlistSchema);
+export const Demand = (mongoose.models.Demand as mongoose.Model<any>) || mongoose.model<any>('Demand', demandSchema);

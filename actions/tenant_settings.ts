@@ -9,7 +9,7 @@ import { revalidateTenantPaths } from "@/lib/revalidate";
 /**
  * Update tenant settings (Manager only)
  */
-export async function updateTenantSettings(data: { currency?: string; name?: string; notificationEmails?: string[] }) {
+export async function updateTenantSettings(data: { currency?: string; name?: string; notificationRecipients?: any[] }) {
     const { tenantId, role, userId } = await requireTenantAccess();
 
     if (role !== 'owner' && role !== 'manager') {
@@ -24,7 +24,7 @@ export async function updateTenantSettings(data: { currency?: string; name?: str
     const updates: any = {};
     if (data.currency) updates.currency = data.currency;
     if (data.name) updates.name = data.name;
-    if (data.notificationEmails) updates.notificationEmails = data.notificationEmails;
+    if (data.notificationRecipients) updates.notificationRecipients = data.notificationRecipients;
 
     await Tenant.updateOne({ id: tenantId }, updates);
 
@@ -54,6 +54,17 @@ export async function getTenantSettings() {
     const tenant = await Tenant.findOne({ id: tenantId }).lean();
     if (!tenant) throw new Error("Tenant not found");
 
+    let recipients = tenant.notificationRecipients || [];
+    if (recipients.length === 0 && tenant.notificationEmails && tenant.notificationEmails.length > 0) {
+        recipients = tenant.notificationEmails.map((email: string) => ({
+            email,
+            notifications: {
+                sale_submission: true,
+                new_demand: true
+            }
+        }));
+    }
+
     return {
         id: tenant.id,
         name: tenant.name,
@@ -61,6 +72,6 @@ export async function getTenantSettings() {
         currency: tenant.currency || 'FCFA',
         plan: tenant.plan,
         active: tenant.active,
-        notificationEmails: tenant.notificationEmails || []
+        notificationRecipients: recipients
     };
 }

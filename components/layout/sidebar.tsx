@@ -14,7 +14,8 @@ import {
     Menu,
     Warehouse,
     Mail,
-    Shield
+    Shield,
+    ClipboardList
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
@@ -63,6 +64,7 @@ function SidebarContent({ className, onNavigate, slug, tenantId, tenantName, org
     const navigation = [
         { name: "Tableau de bord", href: `/t/${slug}/dashboard`, icon: LayoutDashboard },
         { name: "Commandes", href: `/t/${slug}/sales`, icon: Ticket },
+        { name: "Demandes", href: `/t/${slug}/demands`, icon: ClipboardList },
         {
             name: "Invitations",
             href: `/t/${slug}/invitations`,

@@ -15,6 +15,14 @@ export interface User {
     created_at: string;
 }
 
+export interface NotificationRecipient {
+    email: string;
+    notifications: {
+        sale_submission: boolean;
+        new_demand: boolean;
+    };
+}
+
 export interface Tenant {
     id: string;
     name: string;
@@ -22,6 +30,8 @@ export interface Tenant {
     plan: string;
     active: boolean;
     currency: string;
+    notificationEmails?: string[]; // Legacy
+    notificationRecipients?: NotificationRecipient[];
     created_at: string;
 }
 
@@ -110,9 +120,28 @@ export interface SalePayment {
     notes?: string;
 }
 
+export interface Demand {
+    id: string;
+    tenantId: string;
+    seller_id: string; // References User.id
+    ticket_type_id: string;
+    ticket_type_name: string;
+    quantity: number;
+    notes?: string;
+    status: 'pending' | 'approved' | 'rejected';
+    reviewed_by?: string;
+    reviewed_at?: string;
+    rejection_reason?: string;
+    created_sale_id?: string;
+    created_at: string;
+    // Populated fields
+    seller_name?: string;
+}
+
 // Helper types for forms
 export type CreateSaleInput = Omit<Sale, 'id' | 'created_by' | 'created_at' | 'updated_at'>;
 export type CreateUserInput = Omit<User, 'id' | 'created_at' | 'last_login'>;
 export type CreateTicketTypeInput = Omit<TicketType, 'id' | 'created_at'>;
 
 export type CreateSalePaymentInput = Omit<SalePayment, 'id' | 'submitted_at' | 'status' | 'approved_by' | 'approved_at'>;
+export type CreateDemandInput = Omit<Demand, 'id' | 'tenantId' | 'status' | 'reviewed_by' | 'reviewed_at' | 'rejection_reason' | 'created_sale_id' | 'created_at' | 'seller_name'>;

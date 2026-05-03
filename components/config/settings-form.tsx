@@ -11,19 +11,22 @@ import { toast } from "sonner";
 import { Loader2, Plus, X, Mail, UserPlus, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getManagers } from "@/actions/users";
+import { NotificationRecipient } from "@/lib/types";
 
 interface SettingsFormProps {
     initialSettings: {
         name: string;
         currency: string;
-        notificationEmails: string[];
+        notificationRecipients?: NotificationRecipient[];
     };
 }
 
 export function SettingsForm({ initialSettings }: SettingsFormProps) {
     const [name, setName] = useState(initialSettings.name);
     const [currency, setCurrency] = useState(initialSettings.currency);
-    const [notificationEmails, setNotificationEmails] = useState<string[]>(initialSettings.notificationEmails || []);
+    const [notificationRecipients, setNotificationRecipients] = useState<NotificationRecipient[]>(
+        initialSettings.notificationRecipients || []
+    );
     const [newEmail, setNewEmail] = useState("");
     const [loading, setLoading] = useState(false);
     const [managers, setManagers] = useState<any[]>([]);
@@ -50,16 +53,27 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
             toast.error("Veuillez entrer une adresse email valide");
             return;
         }
-        if (notificationEmails.includes(email)) {
+        if (notificationRecipients.some(r => r.email === email)) {
             toast.error("Cette adresse est déjà dans la liste");
             return;
         }
-        setNotificationEmails([...notificationEmails, email]);
+        setNotificationRecipients([...notificationRecipients, {
+            email,
+            notifications: { sale_submission: true, new_demand: true }
+        }]);
         if (!emailToAdd) setNewEmail("");
     };
 
     const removeEmail = (emailToRemove: string) => {
-        setNotificationEmails(notificationEmails.filter(email => email !== emailToRemove));
+        setNotificationRecipients(notificationRecipients.filter(r => r.email !== emailToRemove));
+    };
+
+    const toggleNotification = (email: string, key: 'sale_submission' | 'new_demand') => {
+        setNotificationRecipients(prev => prev.map(r => 
+            r.email === email 
+                ? { ...r, notifications: { ...r.notifications, [key]: !r.notifications[key] } }
+                : r
+        ));
     };
 
     async function onSubmit(e: React.FormEvent) {
@@ -67,7 +81,7 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
         setLoading(true);
 
         try {
-            const result = await updateTenantSettings({ name, currency, notificationEmails });
+            const result = await updateTenantSettings({ name, currency, notificationRecipients });
             if (result.success) {
                 toast.success("Paramètres mis à jour avec succès");
             }
@@ -157,7 +171,7 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
                             {fetchingManagers ? (
                                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                             ) : managers.length > 0 ? (
-                                managers.filter(m => !notificationEmails.includes(m.email)).map((manager) => (
+                                managers.filter(m => !notificationRecipients.some(r => r.email === m.email)).map((manager) => (
                                     <Button
                                         key={manager.id}
                                         type="button"
@@ -173,7 +187,7 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
                             ) : (
                                 <p className="text-[10px] text-muted-foreground italic">Aucun autre manager disponible.</p>
                             )}
-                            {managers.length > 0 && managers.every(m => notificationEmails.includes(m.email)) && (
+                            {managers.length > 0 && managers.every(m => notificationRecipients.some(r => r.email === m.email)) && (
                                 <p className="text-[10px] text-muted-foreground italic">Tous les managers sont déjà ajoutés.</p>
                             )}
                         </div>
@@ -185,21 +199,45 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
                         <Label className="text-xs text-muted-foreground">Destinataires configurés</Label>
                     </div>
 
-                    <div className="flex flex-wrap gap-2 pt-2">
-                        {notificationEmails.length === 0 ? (
+                    <div className="flex flex-col gap-2 pt-2">
+                        {notificationRecipients.length === 0 ? (
                             <p className="text-sm text-muted-foreground italic">Aucun email configuré pour les notifications.</p>
                         ) : (
-                            notificationEmails.map((email) => (
-                                <Badge key={email} variant="secondary" className="px-3 py-1 text-sm font-medium flex items-center gap-2 pr-1 bg-blue-50 text-blue-700 border-blue-100 hover:bg-blue-100 transition-colors">
-                                    {email}
-                                    <button
-                                        type="button"
-                                        onClick={() => removeEmail(email)}
-                                        className="rounded-full p-0.5 hover:bg-blue-200 transition-colors"
-                                    >
-                                        <X className="h-3 w-3" />
-                                    </button>
-                                </Badge>
+                            notificationRecipients.map((recipient) => (
+                                <div key={recipient.email} className="flex items-center justify-between p-3 border rounded-lg bg-gray-50/50">
+                                    <div className="flex items-center gap-2">
+                                        <Mail className="h-4 w-4 text-muted-foreground" />
+                                        <span className="font-medium text-sm">{recipient.email}</span>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={recipient.notifications.sale_submission}
+                                                onChange={() => toggleNotification(recipient.email, 'sale_submission')}
+                                                className="rounded border-gray-300"
+                                            />
+                                            Ventes
+                                        </label>
+                                        <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={recipient.notifications.new_demand}
+                                                onChange={() => toggleNotification(recipient.email, 'new_demand')}
+                                                className="rounded border-gray-300"
+                                            />
+                                            Demandes
+                                        </label>
+                                        <button
+                                            type="button"
+                                            onClick={() => removeEmail(recipient.email)}
+                                            className="text-red-500 hover:text-red-700 ml-2"
+                                            title="Retirer"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                </div>
                             ))
                         )}
                     </div>

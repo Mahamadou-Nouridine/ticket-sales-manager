@@ -65,6 +65,31 @@ export async function getManagers() {
     }).filter(Boolean);
 }
 
+/**
+ * Get all sellers for the CURRENT TENANT
+ */
+export async function getSellers() {
+    const { tenantId } = await requireTenantAccess();
+    await connectToDatabase();
+
+    const memberships = await Membership.find({
+        tenantId,
+        role: "seller",
+        active: true
+    }).populate('user').lean();
+
+    return memberships.map((m: any) => {
+        const u = m.user;
+        if (!u) return null;
+        return {
+            id: u.id,
+            email: u.email,
+            full_name: u.full_name || `${u.first_name} ${u.last_name}`,
+            username: u.username
+        };
+    }).filter(Boolean);
+}
+
 export async function getMyTenants() {
     const session = await getServerSession(authOptions);
     if (!session || !session.user) return [];
