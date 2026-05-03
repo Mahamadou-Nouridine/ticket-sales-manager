@@ -84,6 +84,7 @@ export interface Sale {
     created_by: string;
     created_at: string;
     updated_at: string;
+    demand_id?: string;
 }
 
 export interface AuditLog {
@@ -128,7 +129,7 @@ export interface Demand {
     ticket_type_name: string;
     quantity: number;
     notes?: string;
-    status: 'pending' | 'approved' | 'rejected';
+    status: 'pending' | 'approved' | 'rejected' | 'cancelled';
     reviewed_by?: string;
     reviewed_at?: string;
     rejection_reason?: string;

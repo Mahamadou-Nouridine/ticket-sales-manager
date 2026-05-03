@@ -62,7 +62,7 @@ export async function getManagers() {
             email: u.email,
             full_name: u.full_name || `${u.first_name} ${u.last_name}`,
         };
-    }).filter(Boolean);
+    }).filter(Boolean) as any[];
 }
 
 /**
@@ -87,7 +87,7 @@ export async function getSellers() {
             full_name: u.full_name || `${u.first_name} ${u.last_name}`,
             username: u.username
         };
-    }).filter(Boolean);
+    }).filter(Boolean) as any[];
 }
 
 export async function getMyTenants() {

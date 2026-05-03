@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Demand, TicketType, User as UserType } from "@/lib/types";
 import {
     Table,
@@ -12,9 +12,10 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { reviewDemand } from "@/actions/demands";
-import { useRouter } from "next/navigation";
+import { reviewDemand, withdrawDemand } from "@/actions/demands";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
+import Link from "next/link";
 import {
     Dialog,
     DialogContent,
@@ -24,7 +25,7 @@ import {
 import { DemandForm } from "./demand-form";
 import { PaginationControl } from "@/components/ui/pagination-control";
 import { Badge } from "@/components/ui/badge";
-import { Plus, CheckCircle, XCircle, Clock, Loader2, AlertCircle, FileText } from "lucide-react";
+import { Plus, CheckCircle, XCircle, Clock, Loader2, AlertCircle, FileText, Eye, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -44,11 +45,25 @@ export function DemandsTable({ demands, ticketTypes, sellers }: DemandsTableProp
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [isNewDemandOpen, setIsNewDemandOpen] = useState(false);
-    
+
     // For review modal
     const [reviewingDemand, setReviewingDemand] = useState<Demand | null>(null);
+    const [viewingDemand, setViewingDemand] = useState<Demand | null>(null);
     const [rejectionReason, setRejectionReason] = useState("");
     const [loadingActions, setLoadingActions] = useState<Record<string, boolean>>({});
+
+    const searchParams = useSearchParams();
+    const viewId = searchParams.get('view');
+
+    // Auto-open modal if view query param is present
+    useEffect(() => {
+        if (viewId) {
+            const demandToView = demands.find(d => d.id === viewId);
+            if (demandToView && !viewingDemand) {
+                setViewingDemand(demandToView);
+            }
+        }
+    }, [viewId, demands]);
 
     const filteredDemands = demands.filter(
         (demand) =>
@@ -68,7 +83,7 @@ export function DemandsTable({ demands, ticketTypes, sellers }: DemandsTableProp
             return;
         }
 
-        const confirmMsg = status === 'approved' 
+        const confirmMsg = status === 'approved'
             ? "Approuver cette demande créera automatiquement la commande et déduira le stock. Continuer ?"
             : "Êtes-vous sûr de vouloir rejeter cette demande ?";
 
@@ -82,6 +97,21 @@ export function DemandsTable({ demands, ticketTypes, sellers }: DemandsTableProp
                 router.refresh();
             } catch (error: any) {
                 toast.error(error.message || "Erreur lors de la mise à jour");
+            } finally {
+                setLoadingActions({ ...loadingActions, [id]: false });
+            }
+        }
+    }
+
+    async function handleWithdraw(id: string) {
+        if (confirm("Êtes-vous sûr de vouloir annuler cette demande ?")) {
+            setLoadingActions({ ...loadingActions, [id]: true });
+            try {
+                await withdrawDemand(id);
+                toast.success("Demande annulée avec succès");
+                router.refresh();
+            } catch (error: any) {
+                toast.error(error.message || "Erreur lors de l'annulation");
             } finally {
                 setLoadingActions({ ...loadingActions, [id]: false });
             }
@@ -104,6 +134,13 @@ export function DemandsTable({ demands, ticketTypes, sellers }: DemandsTableProp
                         Rejetée
                     </Badge>
                 );
+            case "cancelled":
+                return (
+                    <Badge variant="secondary" className="bg-gray-200 text-gray-700 hover:bg-gray-300">
+                        <Ban className="mr-1 h-3 w-3" />
+                        Annulée
+                    </Badge>
+                );
             case "pending":
             default:
                 return (
@@ -122,7 +159,7 @@ export function DemandsTable({ demands, ticketTypes, sellers }: DemandsTableProp
                     <div>
                         <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Demandes de Tickets</h2>
                         <p className="text-sm md:text-base text-muted-foreground">
-                            {userRole === 'manager' 
+                            {userRole === 'manager'
                                 ? "Gérez les demandes de tickets des vendeurs."
                                 : "Faites vos demandes de tickets et suivez leur statut."}
                         </p>
@@ -145,7 +182,7 @@ export function DemandsTable({ demands, ticketTypes, sellers }: DemandsTableProp
                                     setCurrentPage(1);
                                 }}
                             />
-                            
+
                             <Dialog open={isNewDemandOpen} onOpenChange={setIsNewDemandOpen}>
                                 <Button onClick={() => setIsNewDemandOpen(true)} className="whitespace-nowrap bg-fuchsia-600 hover:bg-fuchsia-700">
                                     <Plus className="mr-2 h-4 w-4" />
@@ -182,7 +219,7 @@ export function DemandsTable({ demands, ticketTypes, sellers }: DemandsTableProp
                         <div className="space-y-4 pt-4">
                             <div className="space-y-2">
                                 <Label>Motif du rejet (obligatoire)</Label>
-                                <Textarea 
+                                <Textarea
                                     placeholder="Expliquez pourquoi cette demande est rejetée..."
                                     value={rejectionReason}
                                     onChange={(e) => setRejectionReason(e.target.value)}
@@ -191,8 +228,8 @@ export function DemandsTable({ demands, ticketTypes, sellers }: DemandsTableProp
                             </div>
                             <div className="flex justify-end gap-2 pt-2">
                                 <Button variant="outline" onClick={() => setReviewingDemand(null)}>Annuler</Button>
-                                <Button 
-                                    variant="destructive" 
+                                <Button
+                                    variant="destructive"
                                     onClick={() => reviewingDemand && handleReview(reviewingDemand.id, 'rejected')}
                                     disabled={!rejectionReason.trim() || loadingActions[reviewingDemand?.id || '']}
                                 >
@@ -201,6 +238,78 @@ export function DemandsTable({ demands, ticketTypes, sellers }: DemandsTableProp
                                 </Button>
                             </div>
                         </div>
+                    </DialogContent>
+                </Dialog>
+
+                <Dialog open={!!viewingDemand} onOpenChange={(open) => !open && setViewingDemand(null)}>
+                    <DialogContent className="sm:max-w-[600px]">
+                        <DialogHeader>
+                            <DialogTitle>Détails de la demande</DialogTitle>
+                        </DialogHeader>
+                        {viewingDemand && (
+                            <div className="space-y-4 pt-4 text-sm">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <p className="text-muted-foreground">ID Demande</p>
+                                        <p className="font-medium font-mono text-xs">{viewingDemand.id}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-muted-foreground">Date de création</p>
+                                        <p className="font-medium">
+                                            {new Date(viewingDemand.created_at).toLocaleString('fr-FR')}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p className="text-muted-foreground">Vendeur</p>
+                                        <p className="font-medium">{(viewingDemand as any).seller_name}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-muted-foreground">Statut</p>
+                                        <div className="font-medium mt-1">
+                                            {getStatusBadge(viewingDemand.status, viewingDemand.rejection_reason)}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <p className="text-muted-foreground">Type de Ticket</p>
+                                        <p className="font-medium">{viewingDemand.ticket_type_name}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-muted-foreground">Quantité</p>
+                                        <p className="font-medium">{viewingDemand.quantity}</p>
+                                    </div>
+                                </div>
+
+                                {viewingDemand.notes && (
+                                    <div className="bg-gray-50 p-3 rounded-md border">
+                                        <p className="text-muted-foreground mb-1">Notes / Motif:</p>
+                                        <p>{viewingDemand.notes}</p>
+                                    </div>
+                                )}
+
+                                {viewingDemand.status === 'rejected' && viewingDemand.rejection_reason && (
+                                    <div className="bg-red-50 p-3 rounded-md border border-red-100">
+                                        <p className="text-red-700 font-medium mb-1">Motif de rejet:</p>
+                                        <p className="text-red-600">{viewingDemand.rejection_reason}</p>
+                                    </div>
+                                )}
+
+                                {viewingDemand.status === 'approved' && viewingDemand.reviewed_at && (
+                                    <div className="bg-green-50 p-3 rounded-md border border-green-100 flex justify-between items-center">
+                                        <div>
+                                            <p className="text-green-800 font-medium mb-1">Approuvée le:</p>
+                                            <p className="text-green-700">{new Date(viewingDemand.reviewed_at).toLocaleString('fr-FR')}</p>
+                                        </div>
+                                        {viewingDemand.created_sale_id && (
+                                            <Link href={`./sales?view=${viewingDemand.created_sale_id}`}>
+                                                <Button size="sm" variant="outline" className="bg-white hover:bg-gray-50 text-green-700 border-green-200">
+                                                    Voir la Commande
+                                                </Button>
+                                            </Link>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </DialogContent>
                 </Dialog>
 
@@ -215,7 +324,7 @@ export function DemandsTable({ demands, ticketTypes, sellers }: DemandsTableProp
                                     <TableHead>Date</TableHead>
                                     <TableHead>Statut</TableHead>
                                     <TableHead>Notes</TableHead>
-                                    {userRole === "manager" && <TableHead className="text-right">Actions</TableHead>}
+                                    <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -238,7 +347,7 @@ export function DemandsTable({ demands, ticketTypes, sellers }: DemandsTableProp
                                             <TableCell className="font-semibold">{demand.quantity}</TableCell>
                                             <TableCell className="whitespace-nowrap">
                                                 {new Date(demand.created_at).toLocaleDateString('fr-FR', {
-                                                    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit'
+                                                    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
                                                 })}
                                             </TableCell>
                                             <TableCell>
@@ -251,10 +360,20 @@ export function DemandsTable({ demands, ticketTypes, sellers }: DemandsTableProp
                                                     <span className="text-muted-foreground">{demand.notes || "-"}</span>
                                                 )}
                                             </TableCell>
-                                            {userRole === "manager" && (
-                                                <TableCell className="text-right">
-                                                    {demand.status === 'pending' ? (
-                                                        <div className="flex justify-end space-x-2">
+                                            <TableCell className="text-right">
+                                                <div className="flex justify-end space-x-2">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => setViewingDemand(demand)}
+                                                        className="h-8 w-8 p-0"
+                                                        title="Voir les détails"
+                                                    >
+                                                        <Eye className="h-4 w-4 text-blue-600" />
+                                                    </Button>
+
+                                                    {userRole === "manager" && demand.status === 'pending' && (
+                                                        <>
                                                             <Button
                                                                 variant="default"
                                                                 size="sm"
@@ -265,8 +384,9 @@ export function DemandsTable({ demands, ticketTypes, sellers }: DemandsTableProp
                                                                 {loadingActions[demand.id] ? (
                                                                     <Loader2 className="h-4 w-4 animate-spin" />
                                                                 ) : (
-                                                                    "Approuver"
+                                                                    <CheckCircle className="h-4 w-4 mr-1" />
                                                                 )}
+                                                                <span className="hidden sm:inline ml-1">Approuver</span>
                                                             </Button>
                                                             <Button
                                                                 variant="outline"
@@ -275,16 +395,30 @@ export function DemandsTable({ demands, ticketTypes, sellers }: DemandsTableProp
                                                                 disabled={loadingActions[demand.id]}
                                                                 className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50"
                                                             >
-                                                                Rejeter
+                                                                <XCircle className="h-4 w-4 mr-1" />
+                                                                <span className="hidden sm:inline ml-1">Rejeter</span>
                                                             </Button>
-                                                        </div>
-                                                    ) : (
-                                                        <span className="text-xs text-muted-foreground italic">
-                                                            Traitée le {new Date(demand.reviewed_at!).toLocaleDateString('fr-FR')}
-                                                        </span>
+                                                        </>
                                                     )}
-                                                </TableCell>
-                                            )}
+
+                                                    {demand.status === 'pending' && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => handleWithdraw(demand.id)}
+                                                            disabled={loadingActions[demand.id]}
+                                                            className="h-8 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                                                            title="Annuler la demande"
+                                                        >
+                                                            {loadingActions[demand.id] ? (
+                                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                            ) : (
+                                                                <Ban className="h-4 w-4" />
+                                                            )}
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </TableCell>
                                         </TableRow>
                                     ))
                                 )}

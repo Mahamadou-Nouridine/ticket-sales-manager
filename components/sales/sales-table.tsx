@@ -14,8 +14,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { deleteSale } from "@/actions/sales";
 import { getPaymentForSale } from "@/actions/payments";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
+import Link from "next/link";
 import {
     Dialog,
     DialogContent,
@@ -27,7 +28,7 @@ import { PaymentModal } from "./payment-modal";
 import { PaginationControl } from "@/components/ui/pagination-control";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/format";
-import { Edit, Trash2, Plus, CheckCircle, XCircle, Clock, Loader2, DollarSign, FileText, AlertCircle, MoreHorizontal } from "lucide-react";
+import { Edit, Trash2, Plus, CheckCircle, XCircle, Clock, Loader2, DollarSign, FileText, AlertCircle, MoreHorizontal, Eye } from "lucide-react";
 
 
 interface SalesTableProps {
@@ -50,10 +51,24 @@ export function SalesTable({ sales, ticketTypes, resellers, currency = 'FCFA', t
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [isNewSaleOpen, setIsNewSaleOpen] = useState(false);
     const [editingSale, setEditingSale] = useState<Sale | null>(null);
+    const [viewingSale, setViewingSale] = useState<Sale | null>(null);
     const [paymentModalSale, setPaymentModalSale] = useState<Sale | null>(null);
     const [paymentData, setPaymentData] = useState<any>(null);
     const [loadingActions, setLoadingActions] = useState<Record<string, boolean>>({});
     const [loadingPayments, setLoadingPayments] = useState<Record<string, boolean>>({});
+
+    const searchParams = useSearchParams();
+    const viewId = searchParams.get('view');
+
+    // Auto-open modal if view query param is present
+    useEffect(() => {
+        if (viewId) {
+            const saleToView = sales.find(s => s.id === viewId);
+            if (saleToView && !viewingSale) {
+                setViewingSale(saleToView);
+            }
+        }
+    }, [viewId, sales]);
 
     const filteredSales = sales.filter(
         (sale) =>
@@ -213,6 +228,60 @@ export function SalesTable({ sales, ticketTypes, resellers, currency = 'FCFA', t
                     </DialogContent>
                 </Dialog>
 
+                <Dialog open={!!viewingSale} onOpenChange={(open) => !open && setViewingSale(null)}>
+                    <DialogContent className="sm:max-w-[600px]">
+                        <DialogHeader>
+                            <DialogTitle>Détails de la Commande</DialogTitle>
+                        </DialogHeader>
+                        {viewingSale && (
+                            <div className="space-y-4 pt-4 text-sm">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <p className="text-muted-foreground">ID Commande</p>
+                                        <p className="font-medium font-mono text-xs">{viewingSale.id}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-muted-foreground">Date de prise</p>
+                                        <p className="font-medium">{viewingSale.date_de_prise}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-muted-foreground">Vendeur</p>
+                                        <p className="font-medium">{(viewingSale as any).seller_name}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-muted-foreground">Statut Paiement</p>
+                                        <div className="mt-1">
+                                            {getStatusBadge((viewingSale as any).payment_status)}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <p className="text-muted-foreground">Type de Ticket</p>
+                                        <p className="font-medium">{viewingSale.ticket_type_name}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-muted-foreground">Quantité</p>
+                                        <p className="font-medium">{viewingSale.quantity}</p>
+                                    </div>
+                                </div>
+                                
+                                {viewingSale.demand_id && (
+                                    <div className="bg-blue-50 p-3 rounded-md border border-blue-100 flex justify-between items-center mt-4">
+                                        <div>
+                                            <p className="text-blue-800 font-medium mb-1">Issue d'une demande</p>
+                                            <p className="text-blue-700 text-xs">Cette commande a été générée automatiquement à partir d'une demande approuvée.</p>
+                                        </div>
+                                        <Link href={`./demands?view=${viewingSale.demand_id}`}>
+                                            <Button size="sm" variant="outline" className="bg-white hover:bg-gray-50 text-blue-700 border-blue-200">
+                                                Voir la Demande
+                                            </Button>
+                                        </Link>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </DialogContent>
+                </Dialog>
+
                 {paymentModalSale && (
                     <PaymentModal
                         open={!!paymentModalSale}
@@ -241,7 +310,7 @@ export function SalesTable({ sales, ticketTypes, resellers, currency = 'FCFA', t
                                     <TableHead>Quantité</TableHead>
                                     <TableHead>Date Prise</TableHead>
                                     <TableHead>Statut Paiement</TableHead>
-                                    {userRole === "manager" && <TableHead className="text-right">Actions</TableHead>}
+                                    <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -271,35 +340,46 @@ export function SalesTable({ sales, ticketTypes, resellers, currency = 'FCFA', t
                                                         ) : getStatusBadge((sale as any).payment_status)}
                                                     </div>
                                                 </TableCell>
-                                                {userRole === "manager" && (
-                                                    <TableCell className="text-right">
-                                                        <div className="flex justify-end space-x-1 sm:space-x-2">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                onClick={() => setEditingSale(sale)}
-                                                                className="h-8 w-8"
-                                                            >
-                                                                <Edit className="h-4 w-4" />
-                                                            </Button>
-                                                            {canDelete && (
+                                                <TableCell className="text-right">
+                                                    <div className="flex justify-end space-x-1 sm:space-x-2">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={() => setViewingSale(sale)}
+                                                            className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                                            title="Voir les détails"
+                                                        >
+                                                            <Eye className="h-4 w-4" />
+                                                        </Button>
+                                                        {userRole === "manager" && (
+                                                            <>
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="icon"
-                                                                    onClick={() => handleDelete(sale.id)}
-                                                                    disabled={loadingActions[`delete-${sale.id}`]}
-                                                                    className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                                    onClick={() => setEditingSale(sale)}
+                                                                    className="h-8 w-8"
                                                                 >
-                                                                    {loadingActions[`delete-${sale.id}`] ? (
-                                                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                                                    ) : (
-                                                                        <Trash2 className="h-4 w-4" />
-                                                                    )}
+                                                                    <Edit className="h-4 w-4" />
                                                                 </Button>
-                                                            )}
-                                                        </div>
-                                                    </TableCell>
-                                                )}
+                                                                {canDelete && (
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        onClick={() => handleDelete(sale.id)}
+                                                                        disabled={loadingActions[`delete-${sale.id}`]}
+                                                                        className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                                    >
+                                                                        {loadingActions[`delete-${sale.id}`] ? (
+                                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                                        ) : (
+                                                                            <Trash2 className="h-4 w-4" />
+                                                                        )}
+                                                                    </Button>
+                                                                )}
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
                                             </TableRow>
                                         );
                                     })

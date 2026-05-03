@@ -204,6 +204,7 @@ export async function reviewDemand(
                 created_at: now,
                 updated_at: now,
                 ticket_type_id: demand.ticket_type_id,
+                demand_id: demandId,
             }], { session: dbSession });
 
             demand.created_sale_id = saleId;
@@ -246,4 +247,37 @@ export async function reviewDemand(
         dbSession.endSession();
         throw error;
     }
+}
+
+export async function withdrawDemand(demandId: string) {
+    const { tenantId, userId, role } = await requireTenantAccess();
+    await connectToDatabase();
+
+    const demand = await Demand.findOne({ id: demandId, tenantId });
+    if (!demand) throw new Error("Demande introuvable");
+
+    if (demand.seller_id !== userId && role !== 'manager' && role !== 'owner') {
+        throw new Error("Non autorisé");
+    }
+
+    if (demand.status !== "pending") {
+        throw new Error("Seule une demande en attente peut être annulée");
+    }
+
+    demand.status = "cancelled";
+    await demand.save();
+
+    await AuditLog.create({
+        id: uuidv4(),
+        tenantId,
+        user_id: userId,
+        action: "CANCEL",
+        entity_type: "DEMAND",
+        entity_id: demandId,
+        details: "Demande annulée par le vendeur",
+        timestamp: new Date().toISOString(),
+    });
+
+    await revalidateTenantPaths(["/demands", "/dashboard"]);
+    return { success: true };
 }

@@ -94,6 +94,7 @@ const saleSchema = new mongoose.Schema({
     created_at: { type: String, required: true },
     updated_at: { type: String, required: true },
     ticket_type_id: { type: String },
+    demand_id: { type: String },
 });
 
 // --- Sale Payment Schema ---
@@ -145,7 +146,7 @@ const demandSchema = new mongoose.Schema({
     ticket_type_name: { type: String, required: true },
     quantity: { type: Number, required: true },
     notes: { type: String },
-    status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+    status: { type: String, enum: ['pending', 'approved', 'rejected', 'cancelled'], default: 'pending' },
     reviewed_by: { type: String },
     reviewed_at: { type: String },
     rejection_reason: { type: String },
