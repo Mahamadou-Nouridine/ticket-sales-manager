@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { submitPayment, approvePayment, rejectPayment, markSaleAsPaid, cancelPayment } from "@/actions/payments";
+import { submitPayment, approvePayment, rejectPayment, markSaleAsPaid, cancelPayment, updateReceiptNumber } from "@/actions/payments";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, CheckCircle, XCircle, Clock, Save, Edit3, AlertTriangle } from "lucide-react";
@@ -30,6 +30,26 @@ export function PaymentModal({ open, onOpenChange, sale, payment, userRole, curr
     const [rejectionReason, setRejectionReason] = useState("");
     const [showRejectForm, setShowRejectForm] = useState(false);
     const [isEditing, setIsEditing] = useState(!!payment && userRole === "seller" && payment.status !== "approved");
+    const [isEditingReceipt, setIsEditingReceipt] = useState(false);
+
+    const handleUpdateReceipt = async () => {
+        if (!receiptId.trim()) {
+            toast.error("Veuillez entrer un numéro de reçu");
+            return;
+        }
+
+        setLoading(true);
+        try {
+            await updateReceiptNumber(sale.id, receiptId);
+            toast.success("Numéro de reçu mis à jour");
+            setIsEditingReceipt(false);
+            onSuccess();
+        } catch (error: any) {
+            toast.error(error.message || "Erreur lors de la mise à jour du reçu");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleSellerSubmit = async () => {
         if (!receiptId.trim()) {
@@ -227,7 +247,31 @@ export function PaymentModal({ open, onOpenChange, sale, payment, userRole, curr
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <Label className="text-muted-foreground">Numéro de Reçu</Label>
-                                <p className="font-medium">{payment.receipt_id}</p>
+                                {payment.status === "approved" && isEditingReceipt ? (
+                                    <Input
+                                        value={receiptId}
+                                        onChange={(e) => setReceiptId(e.target.value)}
+                                        className="mt-1 h-8"
+                                        autoFocus
+                                    />
+                                ) : (
+                                    <div className="flex items-center gap-2">
+                                        <p className="font-medium">{payment.receipt_id}</p>
+                                        {payment.status === "approved" && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setReceiptId(payment.receipt_id || "");
+                                                    setIsEditingReceipt(true);
+                                                }}
+                                                className="text-muted-foreground hover:text-foreground"
+                                                title="Modifier le numéro de reçu"
+                                            >
+                                                <Edit3 className="h-3.5 w-3.5" />
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                             <div>
                                 <Label className="text-muted-foreground">Montant</Label>
@@ -337,8 +381,33 @@ export function PaymentModal({ open, onOpenChange, sale, payment, userRole, curr
                                 </div>
                             </div>
                         )}
+
+                        {isEditingReceipt && (
+                            <div className="flex gap-2 pt-2 border-t">
+                                <Button
+                                    variant="outline"
+                                    className="flex-1"
+                                    onClick={() => {
+                                        setIsEditingReceipt(false);
+                                        setReceiptId(payment.receipt_id || "");
+                                    }}
+                                    disabled={loading}
+                                >
+                                    Annuler
+                                </Button>
+                                <Button
+                                    className="flex-1"
+                                    onClick={handleUpdateReceipt}
+                                    disabled={loading}
+                                >
+                                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    <Save className="mr-2 h-4 w-4" />
+                                    Enregistrer
+                                </Button>
+                            </div>
+                        )}
                     </div>
-                    {payment.status !== "pending" && (
+                    {payment.status !== "pending" && !isEditingReceipt && (
                         <div className="flex justify-end">
                             <Button variant="outline" onClick={() => onOpenChange(false)}>
                                 Fermer
@@ -366,10 +435,34 @@ export function PaymentModal({ open, onOpenChange, sale, payment, userRole, curr
                             <CheckCircle className="h-5 w-5" />
                             <span className="font-medium">Cette commande a été payée</span>
                         </div>
-                        {sale.invoice_number && (
+                        {(sale.invoice_number || userRole === "manager") && (
                             <div>
                                 <Label className="text-muted-foreground">Numéro de Reçu</Label>
-                                <p className="font-medium">{sale.invoice_number}</p>
+                                {isEditingReceipt ? (
+                                    <Input
+                                        value={receiptId}
+                                        onChange={(e) => setReceiptId(e.target.value)}
+                                        className="mt-1 h-8"
+                                        autoFocus
+                                    />
+                                ) : (
+                                    <div className="flex items-center gap-2">
+                                        <p className="font-medium">{sale.invoice_number || "Non renseigné"}</p>
+                                        {userRole === "manager" && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setReceiptId(sale.invoice_number || "");
+                                                    setIsEditingReceipt(true);
+                                                }}
+                                                className="text-muted-foreground hover:text-foreground"
+                                                title="Modifier le numéro de reçu"
+                                            >
+                                                <Edit3 className="h-3.5 w-3.5" />
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         )}
                         {sale.date_de_versement && (
@@ -379,11 +472,36 @@ export function PaymentModal({ open, onOpenChange, sale, payment, userRole, curr
                             </div>
                         )}
                     </div>
-                    <div className="flex justify-end">
-                        <Button variant="outline" onClick={() => onOpenChange(false)}>
-                            Fermer
-                        </Button>
-                    </div>
+                    {isEditingReceipt ? (
+                        <div className="flex gap-2">
+                            <Button
+                                variant="outline"
+                                className="flex-1"
+                                onClick={() => {
+                                    setIsEditingReceipt(false);
+                                    setReceiptId(sale.invoice_number || "");
+                                }}
+                                disabled={loading}
+                            >
+                                Annuler
+                            </Button>
+                            <Button
+                                className="flex-1"
+                                onClick={handleUpdateReceipt}
+                                disabled={loading}
+                            >
+                                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                <Save className="mr-2 h-4 w-4" />
+                                Enregistrer
+                            </Button>
+                        </div>
+                    ) : (
+                        <div className="flex justify-end">
+                            <Button variant="outline" onClick={() => onOpenChange(false)}>
+                                Fermer
+                            </Button>
+                        </div>
+                    )}
                 </DialogContent>
             </Dialog>
         );

@@ -70,15 +70,23 @@ export function SalesTable({ sales, ticketTypes, resellers, currency = 'FCFA', t
         }
     }, [viewId, sales]);
 
-    const filteredSales = sales.filter((sale) => {
-        const q = filter.toLowerCase();
+    const trimmedFilter = filter.trim();
+    const q = trimmedFilter.toLowerCase();
+
+    // For each sale, figure out *which* field(s) matched the search query so we can show it to the user.
+    function getMatchCriteria(sale: Sale): string[] {
+        if (!q) return [];
         const receiptId = sale.invoice_number || (sale as any).payment_details?.receipt_id || "";
-        return (
-            (sale as any).seller_name.toLowerCase().includes(q) ||
-            sale.ticket_type_name.toLowerCase().includes(q) ||
-            receiptId.toLowerCase().includes(q)
-        );
-    });
+        const matches: string[] = [];
+        if ((sale as any).seller_name.toLowerCase().includes(q)) matches.push("Vendeur");
+        if (sale.ticket_type_name.toLowerCase().includes(q)) matches.push("Type");
+        if (receiptId.toLowerCase().includes(q)) matches.push("N° de Reçu");
+        return matches;
+    }
+
+    const filteredSales = q
+        ? sales.filter((sale) => getMatchCriteria(sale).length > 0)
+        : sales;
 
     const totalPages = Math.ceil(filteredSales.length / itemsPerPage);
     const paginatedSales = filteredSales.slice(
@@ -320,20 +328,20 @@ export function SalesTable({ sales, ticketTypes, resellers, currency = 'FCFA', t
                                     <TableHead>Quantité</TableHead>
                                     <TableHead>Date Prise</TableHead>
                                     <TableHead>Statut Paiement</TableHead>
+                                    {!!q && <TableHead>Trouvé via</TableHead>}
                                     <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {paginatedSales.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="text-center">
+                                        <TableCell colSpan={q ? 7 : 6} className="text-center">
                                             Aucune commande trouvée.
                                         </TableCell>
                                     </TableRow>
                                 ) : (
                                     paginatedSales.map((sale) => {
-                                        // We'll need to fetch payment status for each sale
-                                        // For now, we'll use a simple approach
+                                        const matchCriteria = getMatchCriteria(sale);
                                         return (
                                             <TableRow key={sale.id}>
                                                 <TableCell className="whitespace-nowrap">{(sale as any).seller_name}</TableCell>
@@ -350,6 +358,17 @@ export function SalesTable({ sales, ticketTypes, resellers, currency = 'FCFA', t
                                                         ) : getStatusBadge((sale as any).payment_status)}
                                                     </div>
                                                 </TableCell>
+                                                {!!q && (
+                                                    <TableCell>
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {matchCriteria.map((c) => (
+                                                                <Badge key={c} variant="outline" className="text-xs font-normal text-muted-foreground">
+                                                                    {c}
+                                                                </Badge>
+                                                            ))}
+                                                        </div>
+                                                    </TableCell>
+                                                )}
                                                 <TableCell className="text-right">
                                                     <div className="flex justify-end space-x-1 sm:space-x-2">
                                                         <Button

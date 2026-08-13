@@ -313,6 +313,60 @@ export async function cancelPayment(paymentId: string) {
 }
 
 /**
+ * Correct the receipt number on a sale that's already marked as paid (Manager only).
+ * Keeps the linked payment submission (if any) in sync so both stay consistent.
+ */
+export async function updateReceiptNumber(saleId: string, receiptId: string) {
+    const { tenantId, userId, user } = await requireTenantAccess();
+
+    if (user.role !== "manager") {
+        throw new Error("Only managers can edit the receipt number");
+    }
+
+    const trimmedReceiptId = receiptId.trim();
+    if (!trimmedReceiptId) {
+        throw new Error("Le numéro de reçu ne peut pas être vide");
+    }
+
+    await connectToDatabase();
+
+    const sale = await Sale.findOne({ id: saleId, tenantId });
+    if (!sale) {
+        throw new Error("Sale not found");
+    }
+
+    if (!sale.verse) {
+        throw new Error("Cette commande n'est pas encore marquée comme payée");
+    }
+
+    const oldReceiptId = sale.invoice_number;
+    sale.invoice_number = trimmedReceiptId;
+    await sale.save();
+
+    // Keep the underlying payment submission (if one exists) consistent with the sale
+    const payment = await SalePayment.findOne({ sale_id: saleId, tenantId });
+    if (payment) {
+        payment.receipt_id = trimmedReceiptId;
+        await payment.save();
+    }
+
+    await AuditLog.create({
+        id: uuidv4(),
+        tenantId,
+        user_id: userId,
+        action: "UPDATE",
+        entity_type: "SALE",
+        entity_id: saleId,
+        details: `Receipt number corrected: ${oldReceiptId || "(none)"} -> ${trimmedReceiptId}`,
+        timestamp: new Date().toISOString(),
+    });
+
+    await revalidateTenantPaths(["/sales"]);
+
+    return { success: true };
+}
+
+/**
  * Mark a sale as paid directly (Manager only - existing functionality)
  */
 export async function markSaleAsPaid(saleId: string, receiptId: string) {
