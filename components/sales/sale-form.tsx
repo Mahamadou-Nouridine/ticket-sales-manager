@@ -43,6 +43,7 @@ export function SaleForm({ ticketTypes, resellers, initialData, currency = 'FCFA
     const [datePrise, setDatePrise] = useState(initialData?.date_de_prise || new Date().toISOString().split("T")[0]);
     const [dateVersement, setDateVersement] = useState(initialData?.date_de_versement || "");
     const [verse, setVerse] = useState(initialData?.verse || false);
+    const [invoiceNumber, setInvoiceNumber] = useState(initialData?.invoice_number || "");
 
     async function onSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -59,6 +60,11 @@ export function SaleForm({ ticketTypes, resellers, initialData, currency = 'FCFA
                 verse,
                 ticket_type_id: "", // Not used in sheet
             } as any;
+
+            // Only managers may correct the receipt/invoice number, and only on an existing sale
+            if (initialData && userRole === "manager") {
+                data.invoice_number = invoiceNumber.trim();
+            }
 
             if (initialData) {
                 await updateSale(initialData.id, data);
@@ -153,6 +159,18 @@ export function SaleForm({ ticketTypes, resellers, initialData, currency = 'FCFA
                     />
                 </div>
             </div>
+
+            {initialData && userRole === "manager" && (
+                <div className="space-y-2">
+                    <label className="text-sm font-medium">Numéro de Reçu</label>
+                    <Input
+                        type="text"
+                        value={invoiceNumber}
+                        onChange={(e) => setInvoiceNumber(e.target.value)}
+                        placeholder="Ex: REC-2024-001"
+                    />
+                </div>
+            )}
 
             <div className="flex items-center space-x-2">
                 <Checkbox

@@ -70,11 +70,15 @@ export function SalesTable({ sales, ticketTypes, resellers, currency = 'FCFA', t
         }
     }, [viewId, sales]);
 
-    const filteredSales = sales.filter(
-        (sale) =>
-            (sale as any).seller_name.toLowerCase().includes(filter.toLowerCase()) ||
-            sale.ticket_type_name.toLowerCase().includes(filter.toLowerCase())
-    );
+    const filteredSales = sales.filter((sale) => {
+        const q = filter.toLowerCase();
+        const receiptId = sale.invoice_number || (sale as any).payment_details?.receipt_id || "";
+        return (
+            (sale as any).seller_name.toLowerCase().includes(q) ||
+            sale.ticket_type_name.toLowerCase().includes(q) ||
+            receiptId.toLowerCase().includes(q)
+        );
+    });
 
     const totalPages = Math.ceil(filteredSales.length / itemsPerPage);
     const paginatedSales = filteredSales.slice(
@@ -166,7 +170,7 @@ export function SalesTable({ sales, ticketTypes, resellers, currency = 'FCFA', t
                     <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div className="w-full sm:max-w-sm">
                             <Input
-                                placeholder="Rechercher par vendeur ou type..."
+                                placeholder="Rechercher par vendeur, type ou n° de reçu..."
                                 value={filter}
                                 onChange={(e) => setFilter(e.target.value)}
                                 className="bg-background"
@@ -262,6 +266,12 @@ export function SalesTable({ sales, ticketTypes, resellers, currency = 'FCFA', t
                                         <p className="text-muted-foreground">Quantité</p>
                                         <p className="font-medium">{viewingSale.quantity}</p>
                                     </div>
+                                    {(viewingSale.invoice_number || (viewingSale as any).payment_details?.receipt_id) && (
+                                        <div>
+                                            <p className="text-muted-foreground">N° de Reçu</p>
+                                            <p className="font-medium font-mono">{viewingSale.invoice_number || (viewingSale as any).payment_details?.receipt_id}</p>
+                                        </div>
+                                    )}
                                 </div>
                                 
                                 {viewingSale.demand_id && (
